@@ -1,0 +1,17 @@
+{
+  "name": "wyze-node",
+  "version": "1.0.0",
+  "description": "A Wyze unoficial API wrapper.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["wyze","api","node","sensors","wyzecam"],
+  "author": "Noel Portugal",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.18.0",
+    "md5": "^2.2.1",
+    "moment": "^2.24.0"
+  }
+}
