@@ -6,11 +6,17 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["wyze","api","node","sensors","wyzecam"],
+  "keywords": [
+    "wyze",
+    "api",
+    "node",
+    "sensors",
+    "wyzecam"
+  ],
   "author": "Noel Portugal",
   "license": "ISC",
   "dependencies": {
-    "axios": "^0.18.0",
+    "axios": "^0.18.1",
     "md5": "^2.2.1",
     "moment": "^2.24.0"
   }
