@@ -3,6 +3,7 @@ This is an un-official Wyze API. Thanks to [nblavoie](https://github.com/nblavoi
 
 ***Important***: 
 Unfortunately, I have not being successful making requests using a bogus phoneId. So you need to install [Charles](https://www.charlesproxy.com/) or [Wireshark](https://www.wireshark.org/) to sniff your Wyze mobile app traffic and retrieve your phoneId.
+Scroll down to see instructions using Charles.
 
 ## Setup
 `npm install wyze-node --save`
