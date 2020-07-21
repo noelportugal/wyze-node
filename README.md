@@ -49,7 +49,7 @@ getObjectList()
 ```
 
 ## Getting phoneId with Charles
-# Credit to https://github.com/McMainsLiam
+### Credit to https://github.com/McMainsLiam
 
 These are steps I took to find the phoneId using Charles proxy and my iPhone. Charles proxy has a 30 day evaluation period so there's no upfront cost.
 
