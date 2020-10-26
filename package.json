@@ -1,6 +1,6 @@
 {
   "name": "wyze-node",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "An un-oficial API wrapper for Wyze products.",
   "main": "index.js",
   "scripts": {
