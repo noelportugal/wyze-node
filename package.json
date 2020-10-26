@@ -1,7 +1,8 @@
 {
   "name": "wyze-node",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "An unoficial API wrapper for Wyze products.",
+  "homepage": "https://github.com/noelportugal/wyze-node",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,7 +12,10 @@
     "api",
     "node",
     "sensors",
-    "wyzecam"
+    "wyzecam",
+    "wyze-node",
+    "wyze bulbs",
+    "wyze sense"
   ],
   "author": "Noel Portugal",
   "license": "ISC",
