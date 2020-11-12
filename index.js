@@ -159,6 +159,29 @@ class Wyze {
   }
 
   /**
+  * get device info 
+  * @returns {data.data}
+  */
+  async getDeviceInfo(deviceMac, deviceModel) {
+    let result
+    try {
+      await this.getTokens();
+      if (!this.accessToken) {
+        await this.login()
+      }
+      const data = {
+        device_mac: deviceMac,
+        device_model: deviceModel,
+      }
+      result = await axios.post(`${this.baseUrl}/app/v2/device/get_device_info`, await this.getRequestBodyData(data))
+    } catch (e) {
+      console.log('Error...', e)
+      throw e
+    }
+    return result.data.data
+  }
+
+  /**
   * get property
   * @returns {data.property_list}
   */

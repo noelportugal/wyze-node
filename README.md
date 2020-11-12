@@ -61,6 +61,7 @@ Use this helper methods to interact with wyze-node.
 - wyze.getRefreshToken()
 - wyze.getObjectList()
 - wyze.runAction(instanceId, providerKey, actionKey)
+- wyze.getDeviceInfo(deviceMac, deviceModel)
 - wyze.getPropertyList(deviceMac, deviceModel)
 - wyze.setProperty(deviceMac, deviceModel, propertyId, propertyValue)
 
