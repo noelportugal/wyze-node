@@ -60,7 +60,6 @@ class Wyze {
    * @returns {data}
    */
   async login() {
-    console.log('Login In...')
     let result
     try {
 
@@ -73,7 +72,6 @@ class Wyze {
       this.setTokens(result.data.data['access_token'], result.data.data['refresh_token'])
     }
     catch (e) {
-      console.log('login error...', e)
       throw e
     }
     return result.data
@@ -84,7 +82,6 @@ class Wyze {
    * @returns {data}
    */
   async getRefreshToken() {
-    console.log('Refreshing token...')
     let result
     try {
       const data = {
@@ -94,7 +91,6 @@ class Wyze {
       this.setTokens(result.data.data['access_token'], result.data.data['refresh_token'])
     }
     catch (e) {
-      console.log('refreshToken error...', e)
       throw e
     }
     return result.data
@@ -118,7 +114,6 @@ class Wyze {
       }
     }
     catch (e) {
-      console.log('Error...', e)
       throw e
     }
     return result.data
@@ -152,7 +147,6 @@ class Wyze {
       }
     }
     catch (e) {
-      console.log('Error...', e)
       throw e
     }
     return result.data
@@ -175,7 +169,6 @@ class Wyze {
       }
       result = await axios.post(`${this.baseUrl}/app/v2/device/get_device_info`, await this.getRequestBodyData(data))
     } catch (e) {
-      console.log('Error...', e)
       throw e
     }
     return result.data.data
@@ -198,7 +191,6 @@ class Wyze {
       }
       result = await axios.post(`${this.baseUrl}/app/v2/device/get_property_list`, await this.getRequestBodyData(data))
     } catch (e) {
-      console.log('Error...', e)
       throw e
     }
     return result.data.data.property_list
@@ -224,7 +216,6 @@ class Wyze {
       const result = await axios.post(`${this.baseUrl}/app/v2/device/set_property`, await this.getRequestBodyData(data))
 
     } catch (e) {
-      console.log('Error...', e)
       throw e
     }
     return result.data
