@@ -221,7 +221,7 @@ class Wyze {
         pid: propertyId,
         pvalue: propertyValue,
       }
-      result = await axios.post(`${this.baseUrl}/app/v2/device/set_property`, await this.getRequestBodyData(data))
+      const result = await axios.post(`${this.baseUrl}/app/v2/device/set_property`, await this.getRequestBodyData(data))
 
     } catch (e) {
       console.log('Error...', e)
