@@ -1,6 +1,6 @@
 {
   "name": "wyze-node",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "An unoficial API wrapper for Wyze products.",
   "homepage": "https://github.com/noelportugal/wyze-node",
   "main": "index.js",
