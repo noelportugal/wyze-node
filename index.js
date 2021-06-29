@@ -13,7 +13,10 @@ class Wyze {
   constructor(options) {
     this.username = options.username
     this.password = options.password
+    this.xApiKey = options.xApiKey || 'WMXHYf79Nr5gIlt3r0r7p9Tcw5bvs6BB4U8O8nGJ'
+    this.userAgent = options.userAgent || 'wyze_ios_2.21.35'
     this.phoneId = options.phoneId || 'bc151f39-787b-4871-be27-5a20fd0a1937'
+    this.authUrl = options.authUrl || 'https://auth-prod.api.wyze.com'
     this.baseUrl = options.baseUrl || 'https://api.wyzecam.com:8443'
     this.appVer = options.appVer || 'com.hualai.WyzeCam___2.3.69'
     this.sc = '9f275790cab94a72bd206c8876429f3c'
@@ -64,12 +67,20 @@ class Wyze {
     try {
 
       const data = {
-        user_name: this.username,
-        password: md5(md5(this.password)),
+        email: this.username,
+        password: md5(md5(md5((this.password)))),
       }
 
-      result = await axios.post(`${this.baseUrl}/app/user/login`, await this.getRequestBodyData(data))
-      this.setTokens(result.data.data['access_token'], result.data.data['refresh_token'])
+     let options = {
+       headers: {
+        'x-api-key': this.xApiKey,
+        'user-agent': this.userAgent,
+        'phone-id': this.phoneId,
+       }
+     }
+
+      result = await axios.post(`${this.authUrl}/user/login`, await this.getRequestBodyData(data), await options)
+      this.setTokens(result.data['access_token'], result.data['refresh_token'])
     }
     catch (e) {
       throw e
@@ -153,7 +164,7 @@ class Wyze {
   }
 
   /**
-  * get device info 
+  * get device info
   * @returns {data.data}
   */
   async getDeviceInfo(deviceMac, deviceModel) {
