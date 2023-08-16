@@ -16,7 +16,7 @@ class Wyze {
     this.xApiKey = options.xApiKey || 'WMXHYf79Nr5gIlt3r0r7p9Tcw5bvs6BB4U8O8nGJ'
     this.userAgent = options.userAgent || 'wyze_ios_2.21.35'
     this.phoneId = options.phoneId || 'bc151f39-787b-4871-be27-5a20fd0a1937'
-    this.authUrl = options.authUrl || 'https://auth-prod.api.wyze.com'
+    this.authUrl = options.authUrl || 'https://auth-prod.api.wyze.com/v3'
     this.baseUrl = options.baseUrl || 'https://api.wyzecam.com:8443'
     this.baseV1Url = options.baseV1Url || 'https://beta-ams-api.wyzecam.com'
     this.appVer = options.appVer || 'com.hualai.WyzeCam___2.3.69'
