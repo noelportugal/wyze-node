@@ -20,7 +20,7 @@
   "author": "Noel Portugal",
   "license": "ISC",
   "dependencies": {
-    "axios": "^0.21.1",
+    "axios": "^1.6.0",
     "md5": "^2.2.1",
     "moment": "^2.24.0",
     "node-localstorage": "^2.1.6"
