@@ -78,11 +78,13 @@ class Wyze {
        headers: {
         'x-api-key': this.xApiKey,
         'user-agent': this.userAgent,
-        'phone-id': this.phoneId,
+        'Content-Type': 'application/json',
+        'Keyid': this.phoneId,
+        'Apikey': this.xApiKey
        }
      }
 
-      result = await axios.post(`${this.authUrl}/user/login`, await this.getRequestBodyData(data), await options)
+      result = await axios.post(`${this.authUrl}/api/user/login`, await this.getRequestBodyData(data), await options)
       this.setTokens(result.data['access_token'], result.data['refresh_token'])
     }
     catch (e) {
@@ -223,6 +225,7 @@ class Wyze {
         action_key: actionKey,
         action_params: {},
         custom_string: '',
+        phone_id: this.phoneId,
       }
 
       result = await axios.post(`${this.baseUrl}/app/v2/auto/run_action`, await this.getRequestBodyData(data))
