@@ -13,17 +13,14 @@ class Wyze {
   constructor(options) {
     this.username = options.username
     this.password = options.password
-    this.xApiKey = options.xApiKey || 'WMXHYf79Nr5gIlt3r0r7p9Tcw5bvs6BB4U8O8nGJ'
+    this.xApiKey = options.xApiKey || ''
     this.userAgent = options.userAgent || 'wyze_ios_2.21.35'
-    this.phoneId = options.phoneId || 'bc151f39-787b-4871-be27-5a20fd0a1937'
-    this.authUrl = options.authUrl || 'https://auth-prod.api.wyze.com/v3'
-    this.baseUrl = options.baseUrl || 'https://api.wyzecam.com:8443'
-    this.baseV1Url = options.baseV1Url || 'https://beta-ams-api.wyzecam.com'
+    this.phoneId = options.phoneId || ''
+    this.authUrl = options.authUrl || 'https://auth-prod.api.wyze.com'
+    this.baseUrl = options.baseUrl || 'https://api.wyzecam.com'
     this.appVer = options.appVer || 'com.hualai.WyzeCam___2.3.69'
     this.sc = '9f275790cab94a72bd206c8876429f3c'
-    this.sv = '9d74946e652647e9b6c9d59326aef104',
-    this.scV1 = 'a9ecb0f8ea7b4da2b6ab56542403d769'
-    this.svV1 = '668988518a6a47fc9c0ef75b0164cfd6'
+    this.sv = '9d74946e652647e9b6c9d59326aef104'
     this.accessToken = options.accessToken || ''
     this.refreshToken = options.refreshToken || ''
   }
@@ -38,7 +35,7 @@ class Wyze {
       app_ver: this.appVer,
       sc: this.sc,
       sv: this.sv,
-      ts: moment().valueOf(),
+      ts: moment().unix(),
       ...data,
     }
   }
@@ -47,8 +44,8 @@ class Wyze {
   * get tokens
   */
   async getTokens() {
-    this.accessToken = localStorage.getItem('access_token')
-    this.refreshToken = localStorage.getItem('refresh_token')
+    this.accessToken = ''
+    this.refreshToken = ''
   }
 
   /**
@@ -136,78 +133,6 @@ class Wyze {
   }
 
   /**
-   * get event list
-   * @returns {data}
-   */
-  async getEventList(options) {
-    let result
-    try {
-      await this.getTokens();
-      if (!this.accessToken) {
-        await this.login()
-      }
-      const startDate = new Date();
-      startDate.setHours(startDate.getHours() - 24);
-
-      const data = {
-        count: options?.count || 1000,
-        event_type: "1",
-        device_mac_list: options?.deviceMacList || [],
-        event_value_list: [],
-        event_tag_list: [],
-        order_by: 2,
-        end_time: options?.endTime || Date.now(),
-        begin_time: options?.beginTime || startDate.getTime(),
-      };
-      result = await axios.post(`${this.baseUrl}/app/v2/device/get_event_list`, await this.getRequestBodyData(data))
-      if (result.data.msg === 'AccessTokenError') {
-        await this.getRefreshToken()
-        return this.getObjectList()
-      }
-    }
-    catch (e) {
-      throw e
-    }
-    return result.data
-  }
-
-  /**
-   * get objects list
-   * @returns {data}
-   */
-  async getEventVideoURL(options) {
-    let result
-    try {
-      await this.getTokens();
-      if (!this.accessToken) {
-        await this.login()
-      }
-      const startDate = new Date();
-      startDate.setHours(startDate.getHours() - 24);
-
-      const data = {
-        device_mac: options?.deviceMac,
-        end_time: options?.endTime || Date.now(),
-        begin_time: options?.beginTime || startDate.getTime(),
-        expires: options?.expires || 4000,
-        max_manifest_fragment: 1000,
-        device_model: options?.deviceModel,
-        sc: this.scV1,
-        sv: this.svV1,
-      };
-      result = await axios.post(`${this.baseV1Url}/api/v1/kinesis/replay_url/get`, await this.getRequestBodyData(data))
-      if (result.data.msg === 'AccessTokenError') {
-        await this.getRefreshToken()
-        return this.getObjectList()
-      }
-    }
-    catch (e) {
-      throw e
-    }
-    return result.data
-  }
-
-  /**
    * run action
    * @returns {data}
    */
@@ -220,14 +145,20 @@ class Wyze {
       }
 
       const data = {
-        provider_key: providerKey,
-        instance_id: instanceId,
+        provider_key: providerKey, // MODEL
+        instance_id: instanceId, // MAC
         action_key: actionKey,
         action_params: {},
         custom_string: '',
         phone_id: this.phoneId,
-      }
-
+        // "sc": "9f275790cab94a72bd206c8876429f3c",
+        // "sv": "9d74946e652647e9b6c9d59326aef104",
+        // "app_ver": "com.hualai___2.11.40",
+        // "app_name": "com.hualai",
+        // "app_version": "2.11.40",
+        // "custom_string": "",
+    }
+    
       result = await axios.post(`${this.baseUrl}/app/v2/auto/run_action`, await this.getRequestBodyData(data))
 
       if (result.data.msg === 'AccessTokenError') {
