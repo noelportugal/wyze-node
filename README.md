@@ -19,6 +19,19 @@ as your second factor, so it works headlessly even with 2FA enabled.
 Pass them as `keyId` / `apiKey` options, or via the `WYZE_KEY_ID` /
 `WYZE_API_KEY` environment variables.
 
+### Interactive login (recommended)
+So you don't have to store your account password anywhere, bootstrap once with
+the interactive login. It prompts for your email + password (the password is
+**not echoed and never written to disk**), then caches a refresh token so future
+runs renew automatically — no password needed again.
+
+```
+WYZE_KEY_ID=xxxx WYZE_API_KEY=yyyy npm run login
+```
+
+After it succeeds you only need the Key ID / API Key going forward; the cached
+refresh token handles the rest.
+
 ## Example
 ```
 const Wyze = require('wyze-node')
