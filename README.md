@@ -1,4 +1,9 @@
 # wyze-node
+
+> ✅ **Working again (June 2026).** Wyze's 2023 auth change broke the old
+> password-only login; the library now uses the current developer **API Key**
+> flow. See [API Key required](#api-key-required) below to get set up.
+
 This is an unofficial Wyze API. This library uses the internal APIs from the Wyze mobile app. A list of all Wyze devices can be retrieved to check the status of Wyze Cameras, Wyze Sense, Wyze Bulbs, Wyze Plugs and possibly Wyze locks (untested). This API can turn on and off cameras, lightbulbs and smart plugs.
 
 ## Setup
