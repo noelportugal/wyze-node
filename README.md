@@ -4,13 +4,25 @@ This is an unofficial Wyze API. This library uses the internal APIs from the Wyz
 ## Setup
 `npm install wyze-node --save`
 
+### API Key required
+Since 2023 Wyze requires a **developer API Key** in addition to your account
+login. Generate one (free) at
+[developer-api-console.wyze.com](https://developer-api-console.wyze.com/#/apikey/view)
+→ **Create API Key**. You'll get a `Key Id` and an `API Key`. The API key acts
+as your second factor, so it works headlessly even with 2FA enabled.
+
+Pass them as `keyId` / `apiKey` options, or via the `WYZE_KEY_ID` /
+`WYZE_API_KEY` environment variables.
+
 ## Example
 ```
 const Wyze = require('wyze-node')
 
 const options = {
   username: process.env.username,
-  password: process.env.password
+  password: process.env.password,
+  keyId: process.env.WYZE_KEY_ID,
+  apiKey: process.env.WYZE_API_KEY
 }
 const wyze = new Wyze(options)
 
@@ -35,7 +47,7 @@ const wyze = new Wyze(options)
 ```
 
 ## Run
-`username=first.last@email.om password=123456 node index.js`
+`username=first.last@email.com password=123456 WYZE_KEY_ID=xxxx WYZE_API_KEY=yyyy node index.js`
 
 ## Helper methods
 
