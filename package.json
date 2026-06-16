@@ -22,7 +22,7 @@
     "wyze sense"
   ],
   "author": "Noel Portugal",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "axios": "^1.6.0",
     "md5": "^2.2.1",
