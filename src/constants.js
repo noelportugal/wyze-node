@@ -34,6 +34,11 @@ const HMS = {
   apiUrl: 'https://hms.api.wyze.com',
 }
 
+// Wyze Scale — also signed with the olive scheme, on its own host.
+const SCALE = {
+  baseUrl: 'https://wyze-scale-service.wyzecam.com',
+}
+
 // "web" signing for the camera WebRTC stream-info endpoint.
 const WEB = {
   baseUrl: 'https://app.wyzecam.com',
@@ -87,6 +92,7 @@ module.exports = {
   WEB,
   CAMERA_PROPERTY_IDS,
   FORD,
+  SCALE,
   BULB_PROPERTY_IDS,
   BULB_MODELS,
 }

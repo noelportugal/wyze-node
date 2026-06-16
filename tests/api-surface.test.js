@@ -32,6 +32,8 @@ const EXPECTED_METHODS = [
   'garageDoor', 'plugTurnOn', 'plugTurnOff',
   // hms
   'getPlanBindingListByUser', 'getHmsId', 'getHmsState', 'setHmsState',
+  // scale
+  'getScaleLatestRecord', 'getScaleRecords', 'getScaleFamilyMembers',
   // cameras
   'getCameras', 'getCameraByName', 'getOnlineCameras', 'getOfflineCameras',
   'getCameraThumbnail', 'cameraTurnOn', 'cameraTurnOff', 'cameraMotionOn', 'cameraMotionOff',
