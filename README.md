@@ -1,10 +1,8 @@
 # wyze-node
 
-> ✅ **Working again (June 2026).** Wyze's 2023 auth change broke the old
-> password-only login; the library now uses the current developer **API Key**
-> flow. See [API Key required](#api-key-required) below to get set up.
+Unofficial Node.js client for the Wyze API. List your devices and control Wyze **cameras** (including live WebRTC snapshots), **bulbs** and light **groups**, **plugs**, **wall switches**, the **robot vacuum**, the **door lock**, **garage** controllers, and the **home monitoring system** — all from plain Node, no Home Assistant required.
 
-This is an unofficial Wyze API. This library uses the internal APIs from the Wyze mobile app. It can list devices and control Wyze cameras (including live WebRTC snapshots), bulbs and light groups, plugs, wall switches, the robot vacuum, the door lock, garage controllers, and the home monitoring system.
+> Uses Wyze's current developer **API Key** auth (the old password-only login stopped working in 2023). See [API Key required](#api-key-required) to get set up.
 
 📚 **Full documentation:** [`docs/`](docs/README.md) — guides for every device type, plus a deep-dive on the [signing & transports](docs/reference/transports.md).
 
