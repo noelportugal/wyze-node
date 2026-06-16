@@ -4,6 +4,11 @@
   "description": "An unoficial API wrapper for Wyze products.",
   "homepage": "https://github.com/noelportugal/wyze-node",
   "main": "src/index.js",
+  "files": [
+    "src/",
+    "bin/",
+    "docs/"
+  ],
   "bin": {
     "wyze-login": "bin/wyze-login.js"
   },
