@@ -120,6 +120,24 @@ await wyze.setGroupColorTemp(office, 3000)   // all 7 bulbs, one request
 await wyze.turnOffGroup(office)
 ```
 
+## Vacuum helpers (Wyze Robot Vacuum)
+
+The vacuum lives on a separate Wyze service that requires signed requests; the
+library handles the signing for you.
+
+- wyze.getVacuumStatus(device)
+- wyze.startVacuum(device)    // begin / resume a sweep
+- wyze.pauseVacuum(device)
+- wyze.dockVacuum(device)     // return to charging dock
+- wyze.controlVacuum(device, type, value, rooms)  // low-level
+
+```
+const vac = await wyze.getDeviceByName('Home Vacuum')
+await wyze.startVacuum(vac)
+// …later…
+await wyze.dockVacuum(vac)
+```
+
 ## Internal methods
 
 - wyze.login()
@@ -128,6 +146,7 @@ await wyze.turnOffGroup(office)
 - wyze.runAction(instanceId, providerKey, actionKey)
 - wyze.runActionList(instanceId, providerKey, actionKey, plist)
 - wyze.runActionListBatch(actions)  // apply across multiple devices in one call
+- wyze.exServiceCall(svc, path, opts)  // signed request to a Wyze "Ex" service
 - wyze.getDeviceInfo(deviceMac, deviceModel)
 - wyze.getPropertyList(deviceMac, deviceModel)
 - wyze.setProperty(deviceMac, deviceModel, propertyId, propertyValue)

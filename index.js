@@ -1,9 +1,28 @@
 'use strict'
 const axios = require('axios')
+const crypto = require('crypto')
 const md5 = require('md5')
 const moment = require('moment')
 const LocalStorage = require('node-localstorage').LocalStorage
 const localStorage = new LocalStorage('./scratch')
+
+const _md5hex = (s) => crypto.createHash('md5').update(String(s)).digest('hex')
+const _hmacMd5 = (key, body) => crypto.createHmac('md5', key).update(body).digest('hex')
+
+// Newer Wyze "Ex" services (vacuum, lock, …) live on their own hosts and require
+// signed requests: an HMAC-MD5 `signature2` keyed on md5(access_token + salt).
+const EX_SERVICES = {
+  venus: { // robot vacuum
+    baseUrl: 'https://wyze-venus-service-vn.wyzecam.com',
+    appId: 'venp_4c30f812828de875',
+    salt: 'CVCSNoa0ALsNEpgKls6ybVTVOmGzFoiq',
+    appVersion: '2.19.14',
+  },
+}
+
+// Vacuum control command codes (see wyze-sdk VenusDeviceControlRequest).
+const VACUUM_CONTROL_TYPE = { SWEEPING: 0, RECHARGE: 3, AREA_CLEAN: 6, QUICK_MAPPING: 7 }
+const VACUUM_CONTROL_VALUE = { STOP: 0, START: 1, PAUSE: 2, FALSE_PAUSE: 3 }
 
 // Property IDs used by the bulb/light convenience helpers.
 const BULB_PROPERTY_IDS = {
@@ -670,6 +689,103 @@ class Wyze {
       throw new Error(`Invalid color '${hex}': expected 6-digit hex like 'FF0000'`)
     }
     return await this.setGroupProperties(group, [{ pid: BULB_PROPERTY_IDS.color, pvalue: value }])
+  }
+
+  /**
+  * Signed request to a newer Wyze "Ex" service (vacuum, lock, …). These hosts
+  * require an HMAC-MD5 `signature2` over the request body (POST) or sorted
+  * params (GET), keyed on md5(access_token + service salt).
+  * @param {object} svc one of EX_SERVICES (baseUrl, appId, salt, appVersion)
+  * @param {string} path e.g. '/plugin/venus/<did>/control'
+  * @param {object} opts { method='POST', params, json }
+  * @returns {data}
+  */
+  async exServiceCall(svc, path, { method = 'POST', params = null, json = null } = {}) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+
+    const send = async () => {
+      const nonce = moment().valueOf()
+      const secret = _md5hex(`${this.accessToken}${svc.salt}`)
+      const headers = {
+        'appid': svc.appId,
+        'appinfo': `wyze_android_${svc.appVersion}`,
+        'phoneid': this.phoneId,
+        'User-Agent': `wyze_android_${svc.appVersion}`,
+        'access_token': this.accessToken,
+        'requestid': _md5hex(_md5hex(String(nonce))),
+        'Accept-Encoding': 'gzip',
+      }
+      let data
+      let axiosParams
+      if (method === 'GET') {
+        const p = { ...(params || {}), nonce }
+        const signStr = Object.keys(p).sort().map(k => `${k}=${p[k]}`).join('&')
+        headers['signature2'] = _hmacMd5(secret, signStr)
+        axiosParams = p
+      } else {
+        // build the exact JSON we sign and send (compact, so they match)
+        data = JSON.stringify({ ...(json || {}), nonce: String(nonce) })
+        headers['signature2'] = _hmacMd5(secret, data)
+        headers['Content-Type'] = 'application/json;charset=utf-8'
+      }
+      return await axios({ method, url: `${svc.baseUrl}${path}`, headers, data, params: axiosParams })
+    }
+
+    let result = await send()
+    const tokenError = result.data && (result.data.msg === 'AccessTokenError' ||
+      String(result.data.code) === '2001')
+    if (tokenError) {
+      await this.getRefreshToken()
+      result = await send()
+    }
+    return result.data
+  }
+
+  /**
+  * Vacuum helpers (Wyze Robot Vacuum). `device` is the vacuum device object;
+  * its mac is used as the venus device id (did).
+  */
+
+  vacuumDid(device) {
+    return device.did || device.mac || device.device_mac
+  }
+
+  async getVacuumStatus(device) {
+    const did = this.vacuumDid(device)
+    return await this.exServiceCall(EX_SERVICES.venus, `/plugin/venus/${did}/status`, {
+      method: 'GET', params: { did },
+    })
+  }
+
+  async controlVacuum(device, type, value, rooms = null) {
+    const did = this.vacuumDid(device)
+    const json = { type, value, vacuumMopMode: 0 }
+    if (rooms != null) json.rooms_id = Array.isArray(rooms) ? rooms : [rooms]
+    return await this.exServiceCall(EX_SERVICES.venus, `/plugin/venus/${did}/control`, { json })
+  }
+
+  /**
+  * startVacuum — begin/resume a full sweep
+  */
+  async startVacuum(device) {
+    return await this.controlVacuum(device, VACUUM_CONTROL_TYPE.SWEEPING, VACUUM_CONTROL_VALUE.START)
+  }
+
+  /**
+  * pauseVacuum — pause the current sweep
+  */
+  async pauseVacuum(device) {
+    return await this.controlVacuum(device, VACUUM_CONTROL_TYPE.SWEEPING, VACUUM_CONTROL_VALUE.PAUSE)
+  }
+
+  /**
+  * dockVacuum — send the vacuum back to its charging dock
+  */
+  async dockVacuum(device) {
+    return await this.controlVacuum(device, VACUUM_CONTROL_TYPE.RECHARGE, VACUUM_CONTROL_VALUE.START)
   }
 
 }
