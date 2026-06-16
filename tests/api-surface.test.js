@@ -14,7 +14,7 @@ const EXPECTED_METHODS = [
   'runAction', 'runActionList', 'runActionListBatch', 'setProperty', 'getPropertyList',
   'turnOn', 'turnOff', 'getDeviceState', 'deviceMac',
   // events
-  'getEventList', 'getEventVideoURL',
+  'getEventList', 'getEventVideoURL', 'markEventsRead',
   // lights + groups
   'isMeshBulb', 'isLightStrip', 'setBrightness', 'setColorTemp', 'setColor', 'setSunMatch',
   'getDeviceGroupByName', 'turnOnGroup', 'turnOffGroup', 'setGroupBrightness',
