@@ -83,7 +83,23 @@ Use this helper methods to interact with wyze-node.
 - wyze.getDeviceStatus(device)
 - wyze.getDeviceState(device)
 
+## Bulb / light helpers
 
+These take a `device` object (from `getDeviceByName` / `getDeviceByMac`) and
+automatically pick the right transport: mesh bulbs and light strips apply
+properties via `set_mesh_property`; regular bulbs use `set_property`.
+
+- wyze.setBrightness(device, brightness)  // 0-100
+- wyze.setColorTemp(device, kelvin)       // ~1800-6500 K
+- wyze.setColor(device, 'RRGGBB')         // color/mesh bulbs only, e.g. 'FF0000'
+- wyze.setSunMatch(device, on)            // mimic natural sunlight
+
+```
+const bulb = await wyze.getDeviceByName('Noel’s Lamp')
+await wyze.setBrightness(bulb, 40)
+await wyze.setColor(bulb, 'FF8800')   // warm orange
+await wyze.setColorTemp(bulb, 2700)   // or back to warm white
+```
 
 ## Internal methods
 
@@ -91,6 +107,7 @@ Use this helper methods to interact with wyze-node.
 - wyze.getRefreshToken()
 - wyze.getObjectList()
 - wyze.runAction(instanceId, providerKey, actionKey)
+- wyze.runActionList(instanceId, providerKey, actionKey, plist)
 - wyze.getDeviceInfo(deviceMac, deviceModel)
 - wyze.getPropertyList(deviceMac, deviceModel)
 - wyze.setProperty(deviceMac, deviceModel, propertyId, propertyValue)
