@@ -1,6 +1,6 @@
 {
   "name": "wyze-node",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "description": "An unoficial API wrapper for Wyze products.",
   "homepage": "https://github.com/noelportugal/wyze-node",
   "main": "index.js",
@@ -28,5 +28,10 @@
     "md5": "^2.2.1",
     "moment": "^2.30.1",
     "node-localstorage": "^2.1.6"
+  },
+  "optionalDependencies": {
+    "ffmpeg-static": "^5.2.0",
+    "werift": "^0.20.0",
+    "ws": "^8.18.0"
   }
 }
