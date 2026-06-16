@@ -211,6 +211,21 @@ const hmsId = await wyze.getHmsId()
 await wyze.setHmsState(hmsId, 'away')
 ```
 
+## Scale (Wyze Scale)
+
+Read body-composition data (weight, BMI, body fat %, water %, BMR, etc.).
+
+- wyze.getScaleLatestRecord(device[, { userId }])  // most recent measurement
+- wyze.getScaleRecords(device[, { userId, startTime, endTime }])  // history range
+- wyze.getScaleFamilyMembers(device)
+
+```
+const scale = await wyze.getDeviceByName('Wyze Scale')
+const { data } = await wyze.getScaleLatestRecord(scale)
+const r = Array.isArray(data) ? data[0] : data
+console.log(r.weight, r.bmi, r.body_fat)
+```
+
 ## Vacuum helpers (Wyze Robot Vacuum)
 
 The vacuum lives on a separate Wyze service that requires signed requests; the
