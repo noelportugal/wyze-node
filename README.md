@@ -120,6 +120,15 @@ await wyze.setGroupColorTemp(office, 3000)   // all 7 bulbs, one request
 await wyze.turnOffGroup(office)
 ```
 
+## Camera helpers
+
+- wyze.getCameraThumbnail(device)  // latest thumbnail URL (supported models only; not real-time)
+
+```
+const cam = await wyze.getDeviceByName('Driveway')
+const url = await wyze.getCameraThumbnail(cam)
+```
+
 ## Vacuum helpers (Wyze Robot Vacuum)
 
 The vacuum lives on a separate Wyze service that requires signed requests; the
