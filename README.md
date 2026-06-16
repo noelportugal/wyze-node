@@ -1,10 +1,10 @@
 # wyze-node
 
-> ✅ **Working again (June 2026).** Wyze's 2023 auth change broke the old
-> password-only login; the library now uses the current developer **API Key**
-> flow. See [API Key required](#api-key-required) below to get set up.
+Unofficial Node.js client for the Wyze API. List your devices and control Wyze **cameras** (including live WebRTC snapshots), **bulbs** and light **groups**, **plugs**, **wall switches**, the **robot vacuum**, the **door lock**, **garage** controllers, and the **home monitoring system** — all from plain Node, no Home Assistant required.
 
-This is an unofficial Wyze API. This library uses the internal APIs from the Wyze mobile app. A list of all Wyze devices can be retrieved to check the status of Wyze Cameras, Wyze Sense, Wyze Bulbs, Wyze Plugs and possibly Wyze locks (untested). This API can turn on and off cameras, lightbulbs and smart plugs.
+> Uses Wyze's current developer **API Key** auth (the old password-only login stopped working in 2023). See [API Key required](#api-key-required) to get set up.
+
+📚 **Full documentation:** [`docs/`](docs/README.md) — guides for every device type, plus a deep-dive on the [signing & transports](docs/reference/transports.md).
 
 ## Setup
 `npm install wyze-node --save`
@@ -65,7 +65,11 @@ const wyze = new Wyze(options)
 ```
 
 ## Run
-`username=first.last@email.com password=123456 WYZE_KEY_ID=xxxx WYZE_API_KEY=yyyy node index.js`
+Save the example above to a file and run it with your credentials in the environment:
+
+`username=first.last@email.com password=123456 WYZE_KEY_ID=xxxx WYZE_API_KEY=yyyy node your-script.js`
+
+Or bootstrap a token once interactively (no password on disk): `npm run login`.
 
 ## Helper methods
 
@@ -129,17 +133,23 @@ await wyze.turnOffGroup(office)
 
 ### Camera streaming (WebRTC)
 
-- wyze.getCameraStreamInfo(device[, { substream }])  // raw get-streams response
 - wyze.getCameraSignalingInfo(device)  // { signalingUrl, iceServers, authToken }
+- wyze.getCameraStreamInfo(device[, { substream }])  // raw get-streams response
+- wyze.cameraCaptureSnapshot(device[, { timeoutMs }])  // live JPEG Buffer
+- wyze.saveCameraSnapshot(device, filePath)  // capture + write to file
 
-Returns the AWS Kinesis Video WebRTC **signaling URL + ICE/TURN servers** a
-WebRTC client needs to open a live stream. Establishing the peer connection and
-capturing frames (ffmpeg) is left to the caller.
+`getCameraSignalingInfo` returns the AWS Kinesis Video signaling URL + ICE/TURN
+servers. `cameraCaptureSnapshot` goes the whole way — it negotiates a live
+WebRTC session and pulls a single JPEG frame via ffmpeg.
 
 ```
 const cam = await wyze.getCameraByName('Driveway')
-const { signalingUrl, iceServers } = await wyze.getCameraSignalingInfo(cam)
+await wyze.saveCameraSnapshot(cam, 'driveway.jpg')
 ```
+
+> Live capture needs optional deps: `npm install werift ws ffmpeg-static`.
+> The camera must be online. For a one-shot CLI, call `process.exit(0)` after
+> saving (the WebRTC stack keeps the event loop alive).
 
 ### Camera events
 
