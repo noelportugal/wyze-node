@@ -1051,10 +1051,18 @@ class Wyze {
   }
 
   async getScaleRecords(device, { userId, startTime = 0, endTime = Date.now() } = {}) {
+    // record_range uses MILLISECOND timestamps; start_time 0 = full history.
+    // Resolve the family member from the latest record if not supplied, so
+    // history comes back without the caller having to look up an id first.
+    if (!userId) {
+      const latest = await this.getScaleLatestRecord(device)
+      const r = Array.isArray(latest.data) ? latest.data[0] : latest.data
+      userId = r && (r.family_member_id || r.user_id)
+    }
     const params = {
       did: this.deviceMac(device),
-      start_time: String(Math.floor(startTime / 1000)),
-      end_time: String(Math.floor(endTime / 1000)),
+      start_time: String(Math.floor(startTime)),
+      end_time: String(Math.floor(endTime)),
     }
     if (userId) params.family_member_id = userId
     return await this._oliveGet(SCALE.baseUrl, '/plugin/scale/get_record_range', params)
