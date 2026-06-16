@@ -141,6 +141,17 @@ const cam = await wyze.getCameraByName('Driveway')
 const { signalingUrl, iceServers } = await wyze.getCameraSignalingInfo(cam)
 ```
 
+### Camera events
+
+- wyze.getEventList({ deviceMacList, count, beginTime, endTime })  // motion/sound events
+- wyze.getEventVideoURL({ deviceMac, deviceModel, beginTime, endTime })  // cloud clip replay URL
+
+```
+const cam = await wyze.getDeviceByName('Front Camera')
+const events = await wyze.getEventList({ deviceMacList: [cam.mac] })
+const clip = await wyze.getEventVideoURL({ deviceMac: cam.mac, deviceModel: cam.product_model })
+```
+
 ### Camera controls
 
 - wyze.cameraTurnOn(device) / wyze.cameraTurnOff(device)
