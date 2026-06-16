@@ -36,7 +36,7 @@
   },
   "optionalDependencies": {
     "ffmpeg-static": "^5.2.0",
-    "werift": "^0.20.0",
+    "werift": "^0.23.0",
     "ws": "^8.18.0"
   }
 }
