@@ -221,10 +221,27 @@ Read body-composition data (weight, BMI, body fat %, water %, BMR, etc.).
 
 ```
 const scale = await wyze.getDeviceByName('Wyze Scale')
+
+// latest measurement
 const { data } = await wyze.getScaleLatestRecord(scale)
 const r = Array.isArray(data) ? data[0] : data
 console.log(r.weight, r.bmi, r.body_fat)
+
+// full history (no args)
+const all = await wyze.getScaleRecords(scale)
+
+// a time range — millisecond timestamps; userId auto-resolves
+const last90 = await wyze.getScaleRecords(scale, {
+  startTime: Date.now() - 90 * 24 * 60 * 60 * 1000,
+})
+const y2025 = await wyze.getScaleRecords(scale, {
+  startTime: Date.parse('2025-01-01'),
+  endTime:   Date.parse('2025-12-31'),
+})
 ```
+
+> **Note:** `getScaleRecords` timestamps are in **milliseconds**. `startTime`
+> defaults to `0` (all history) and `endTime` to now.
 
 ## Vacuum helpers (Wyze Robot Vacuum)
 
