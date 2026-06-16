@@ -239,6 +239,37 @@ class Wyze {
   }
 
   /**
+  * markEventsRead — mark notification events read (or unread). Pass event
+  * objects from getEventList(); they're grouped by device automatically.
+  * @param {Array<{device_mac:string,event_id:string}>} events
+  * @param {{read?:boolean}} [opts]
+  * @returns {data}
+  */
+  async markEventsRead(events, { read = true } = {}) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const byMac = {}
+    for (const e of (events || [])) {
+      const mac = e.device_mac || e.deviceMac
+      const id = e.event_id || e.eventId || e.id
+      if (!mac || !id) continue
+      ;(byMac[mac] = byMac[mac] || []).push(id)
+    }
+    const data = {
+      event_list: Object.keys(byMac).map(mac => ({ device_mac: mac, event_id_list: byMac[mac], event_type: 1 })),
+      read_state: read ? 1 : 0,
+    }
+    let result = await axios.post(`${this.baseUrl}/app/v2/device_event/set_read_state_list`, await this.getRequestBodyData(data))
+    if (result.data.msg === 'AccessTokenError') {
+      await this.getRefreshToken()
+      return this.markEventsRead(events, { read })
+    }
+    return result.data
+  }
+
+  /**
    * run action
    * @returns {data}
    */
