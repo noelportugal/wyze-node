@@ -64,3 +64,6 @@ typings/
 example/scratch
 # macOS
 .DS_Store
+
+# token cache (contains access/refresh tokens)
+/scratch/
