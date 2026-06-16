@@ -40,6 +40,7 @@ console.log(await wyze.getLockInfo(lock))   // { locked, battery, … }
 |---|---|---|
 | Lights & bulbs | color bulbs, white bulbs, light strips, groups | [Lights](guides/lights.md) |
 | Cameras | controls, thumbnails, events, live snapshots | [Cameras](guides/cameras.md) |
+| Notifications | event feed + polling recipe | [Notifications](guides/notifications.md) |
 | Vacuum / Lock / Switches / Plugs / Garage / HMS | the rest of the house | [Home Devices](guides/home-devices.md) |
 
 ## 🚀 Get started

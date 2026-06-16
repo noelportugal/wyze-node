@@ -155,6 +155,10 @@ await wyze.saveCameraSnapshot(cam, 'driveway.jpg')
 
 - wyze.getEventList({ deviceMacList, count, beginTime, endTime })  // motion/sound events
 - wyze.getEventVideoURL({ deviceMac, deviceModel, beginTime, endTime })  // cloud clip replay URL
+- wyze.markEventsRead(events[, { read }])  // mark notification events read/unread
+
+For forwarding Wyze notifications elsewhere (LCD, webhook, …), poll the event
+list — see the [Notifications guide](docs/guides/notifications.md).
 
 ```
 const cam = await wyze.getDeviceByName('Front Camera')
