@@ -101,6 +101,25 @@ await wyze.setColor(bulb, 'FF8800')   // warm orange
 await wyze.setColorTemp(bulb, 2700)   // or back to warm white
 ```
 
+## Group helpers
+
+Wyze has no native group-action API, so these fan out to a group's members.
+Mesh bulbs are applied in a single batched `run_action_list` call; any non-mesh
+members fall back to per-device `set_property`.
+
+- wyze.getDeviceGroupByName(name)
+- wyze.turnOnGroup(group)
+- wyze.turnOffGroup(group)
+- wyze.setGroupBrightness(group, brightness)   // 0-100
+- wyze.setGroupColorTemp(group, kelvin)        // ~1800-6500 K
+- wyze.setGroupColor(group, 'RRGGBB')          // color/mesh bulbs
+
+```
+const office = await wyze.getDeviceGroupByName('Office Lights')
+await wyze.setGroupColorTemp(office, 3000)   // all 7 bulbs, one request
+await wyze.turnOffGroup(office)
+```
+
 ## Internal methods
 
 - wyze.login()
@@ -108,6 +127,7 @@ await wyze.setColorTemp(bulb, 2700)   // or back to warm white
 - wyze.getObjectList()
 - wyze.runAction(instanceId, providerKey, actionKey)
 - wyze.runActionList(instanceId, providerKey, actionKey, plist)
+- wyze.runActionListBatch(actions)  // apply across multiple devices in one call
 - wyze.getDeviceInfo(deviceMac, deviceModel)
 - wyze.getPropertyList(deviceMac, deviceModel)
 - wyze.setProperty(deviceMac, deviceModel, propertyId, propertyValue)
