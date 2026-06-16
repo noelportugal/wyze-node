@@ -62,3 +62,5 @@ typings/
 
 # token storage
 example/scratch
+# macOS
+.DS_Store
