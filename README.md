@@ -149,6 +149,19 @@ await wyze.cameraMotionOff(cam)   // pause motion detection
 - wyze.plugTurnOn(device)
 - wyze.plugTurnOff(device)
 
+## Wall switch controls (LD_SS1)
+
+- wyze.getIotProp(device[, keys])  // read switch state
+- wyze.setIotProp(device, propKey, value)  // low-level
+- wyze.wallSwitchPowerOn(device) / wyze.wallSwitchPowerOff(device)
+- wyze.wallSwitchIotOn(device) / wyze.wallSwitchIotOff(device)
+- wyze.wallSwitchLedOn(device) / wyze.wallSwitchLedOff(device)
+- wyze.wallSwitchVacationModeOn(device) / wyze.wallSwitchVacationModeOff(device)
+
+## Garage door
+
+- wyze.garageDoor(device)  // triggers a garage controller attached to a Wyze cam
+
 ## Vacuum helpers (Wyze Robot Vacuum)
 
 The vacuum lives on a separate Wyze service that requires signed requests; the

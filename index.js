@@ -24,6 +24,16 @@ const EX_SERVICES = {
 const VACUUM_CONTROL_TYPE = { SWEEPING: 0, RECHARGE: 3, AREA_CLEAN: 6, QUICK_MAPPING: 7 }
 const VACUUM_CONTROL_VALUE = { STOP: 0, START: 1, PAUSE: 2, FALSE_PAUSE: 3 }
 
+// "olive" IoT-prop transport on the sirius host (wall switches, thermostats…).
+// signature2 = HMAC-MD5(md5(access_token + salt), body).
+const SIRIUS = {
+  baseUrl: 'https://wyze-sirius-service.wyzecam.com',
+  appId: '9319141212m2ik',
+  salt: 'wyze_app_secret_key_132',
+  appInfo: 'wyze_android_2.19.14',
+}
+const DEFAULT_IOT_KEYS = 'iot_state,switch-power,switch-iot,single_press_type,double_press_type,triple_press_type,long_press_type,palm-state'
+
 // Camera control property IDs (ported from jfarmer08/wyze-api).
 const CAMERA_PROPERTY_IDS = {
   notifications: 'P1',        // push notifications 1/0
@@ -905,6 +915,86 @@ class Wyze {
   }
 
   /**
+  * IoT-prop transport ("olive" signing on the sirius service), used by wall
+  * switches. signature2 = HMAC-MD5(md5(access_token + salt), body).
+  */
+  _oliveSignature(body) {
+    return _hmacMd5(_md5hex(`${this.accessToken}${SIRIUS.salt}`), body)
+  }
+
+  _siriusHeaders(signature, hasJson) {
+    const headers = {
+      'Accept-Encoding': 'gzip',
+      'User-Agent': this.userAgent,
+      'appid': SIRIUS.appId,
+      'appinfo': SIRIUS.appInfo,
+      'phoneid': this.phoneId,
+      'access_token': this.accessToken,
+      'signature2': signature,
+    }
+    if (hasJson) headers['Content-Type'] = 'application/json'
+    return headers
+  }
+
+  async getIotProp(device, keys = DEFAULT_IOT_KEYS) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const keysStr = Array.isArray(keys) ? keys.join(',') : keys
+    const send = async () => {
+      const payload = { keys: keysStr, did: this.deviceMac(device), nonce: String(moment().valueOf()) }
+      const body = Object.keys(payload).sort().map(k => `${k}=${payload[k]}`).join('&')
+      const headers = this._siriusHeaders(this._oliveSignature(body), false)
+      return await axios.get(`${SIRIUS.baseUrl}/plugin/sirius/get_iot_prop`, { headers, params: payload })
+    }
+    let result = await send()
+    if (result.data && (result.data.msg === 'AccessTokenError' || String(result.data.code) === '2001')) {
+      await this.getRefreshToken()
+      result = await send()
+    }
+    return result.data
+  }
+
+  async setIotProp(device, propKey, value) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const send = async () => {
+      const payload = {
+        did: this.deviceMac(device),
+        model: device.product_model,
+        props: { [propKey]: value },
+        is_sub_device: 0,
+        nonce: String(moment().valueOf()),
+      }
+      const body = JSON.stringify(payload)
+      const headers = this._siriusHeaders(this._oliveSignature(body), true)
+      return await axios.post(`${SIRIUS.baseUrl}/plugin/sirius/set_iot_prop_by_topic`, body, { headers })
+    }
+    let result = await send()
+    if (result.data && (result.data.msg === 'AccessTokenError' || String(result.data.code) === '2001')) {
+      await this.getRefreshToken()
+      result = await send()
+    }
+    return result.data
+  }
+
+  /**
+  * Wall switch (LD_SS1) controls. switch-power is the relay; switch-iot is the
+  * "smart control" mode. Values ported from jfarmer08/wyze-api.
+  */
+  async wallSwitchPowerOn(device) { return await this.setIotProp(device, 'switch-power', true) }
+  async wallSwitchPowerOff(device) { return await this.setIotProp(device, 'switch-power', false) }
+  async wallSwitchIotOn(device) { return await this.setIotProp(device, 'switch-iot', true) }
+  async wallSwitchIotOff(device) { return await this.setIotProp(device, 'switch-iot', false) }
+  async wallSwitchLedOn(device) { return await this.setIotProp(device, 'led_state', true) }
+  async wallSwitchLedOff(device) { return await this.setIotProp(device, 'led_state', false) }
+  async wallSwitchVacationModeOn(device) { return await this.setIotProp(device, 'vacation_mode', 0) }
+  async wallSwitchVacationModeOff(device) { return await this.setIotProp(device, 'vacation_mode', 1) }
+
+  /**
   * Camera controls (ported from jfarmer08/wyze-api). Each takes a camera device
   * object.
   */
@@ -956,6 +1046,13 @@ class Wyze {
   }
   async cameraSpotLightOff(device) {
     return await this.cameraFloodLightOff(device)
+  }
+
+  /**
+  * garageDoor — triggers the garage-door controller attached to a Wyze camera.
+  */
+  async garageDoor(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'garage_door_trigger')
   }
 
   /**
