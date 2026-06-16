@@ -1,4 +1,4 @@
-const Wyze = require('../index.js')
+const Wyze = require('../src/index.js')
 
 const options = {
   username: process.env.username,

@@ -1,15 +1,20 @@
 {
   "name": "wyze-node",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "description": "An unoficial API wrapper for Wyze products.",
   "homepage": "https://github.com/noelportugal/wyze-node",
-  "main": "index.js",
+  "main": "src/index.js",
+  "files": [
+    "src/",
+    "bin/",
+    "docs/"
+  ],
   "bin": {
     "wyze-login": "bin/wyze-login.js"
   },
   "scripts": {
     "login": "node bin/wyze-login.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "keywords": [
     "wyze",
@@ -22,11 +27,16 @@
     "wyze sense"
   ],
   "author": "Noel Portugal",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "axios": "^1.6.0",
     "md5": "^2.2.1",
     "moment": "^2.30.1",
     "node-localstorage": "^2.1.6"
+  },
+  "optionalDependencies": {
+    "ffmpeg-static": "^5.2.0",
+    "werift": "^0.20.0",
+    "ws": "^8.18.0"
   }
 }
