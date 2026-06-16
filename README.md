@@ -123,11 +123,31 @@ await wyze.turnOffGroup(office)
 ## Camera helpers
 
 - wyze.getCameraThumbnail(device)  // latest thumbnail URL (supported models only; not real-time)
+- wyze.getCameras()
+- wyze.getCameraByName(name)
+- wyze.getOnlineCameras() / wyze.getOfflineCameras()
+
+### Camera controls
+
+- wyze.cameraTurnOn(device) / wyze.cameraTurnOff(device)
+- wyze.cameraMotionOn(device) / wyze.cameraMotionOff(device)        // motion detection
+- wyze.cameraNotificationsOn(device) / wyze.cameraNotificationsOff(device)
+- wyze.cameraMotionRecordingOn(device) / wyze.cameraMotionRecordingOff(device)
+- wyze.cameraSoundNotificationOn(device) / wyze.cameraSoundNotificationOff(device)
+- wyze.cameraFloodLightOn(device) / wyze.cameraFloodLightOff(device)
+- wyze.cameraSpotLightOn(device) / wyze.cameraSpotLightOff(device)
+- wyze.cameraSirenOn(device) / wyze.cameraSirenOff(device)
 
 ```
-const cam = await wyze.getDeviceByName('Driveway')
+const cam = await wyze.getCameraByName('Driveway')
 const url = await wyze.getCameraThumbnail(cam)
+await wyze.cameraMotionOff(cam)   // pause motion detection
 ```
+
+## Plug controls
+
+- wyze.plugTurnOn(device)
+- wyze.plugTurnOff(device)
 
 ## Vacuum helpers (Wyze Robot Vacuum)
 

@@ -24,6 +24,15 @@ const EX_SERVICES = {
 const VACUUM_CONTROL_TYPE = { SWEEPING: 0, RECHARGE: 3, AREA_CLEAN: 6, QUICK_MAPPING: 7 }
 const VACUUM_CONTROL_VALUE = { STOP: 0, START: 1, PAUSE: 2, FALSE_PAUSE: 3 }
 
+// Camera control property IDs (ported from jfarmer08/wyze-api).
+const CAMERA_PROPERTY_IDS = {
+  notifications: 'P1',        // push notifications 1/0
+  motion: 'P1001',            // motion detection 1/0
+  motionRecording: 'P1047',   // event motion recording 1/0
+  soundNotification: 'P1048', // sound recording/notification 1/0
+  light: 'P1056',             // floodlight / spotlight: 1 = on, 2 = off
+}
+
 // The lock lives on the "ford" service, which uses a different signing scheme:
 // sign = md5(quote_plus(method + path + sortedParams + appSecret)).
 const FORD = {
@@ -893,6 +902,87 @@ class Wyze {
 
   async unlockDoor(device) {
     return await this.controlLock(device, 'remoteUnlock')
+  }
+
+  /**
+  * Camera controls (ported from jfarmer08/wyze-api). Each takes a camera device
+  * object.
+  */
+  async cameraTurnOn(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'power_on')
+  }
+  async cameraTurnOff(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'power_off')
+  }
+  async cameraSirenOn(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'siren_on')
+  }
+  async cameraSirenOff(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'siren_off')
+  }
+  async cameraMotionOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.motion, 1)
+  }
+  async cameraMotionOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.motion, 0)
+  }
+  async cameraNotificationsOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.notifications, '1')
+  }
+  async cameraNotificationsOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.notifications, '0')
+  }
+  async cameraMotionRecordingOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.motionRecording, '1')
+  }
+  async cameraMotionRecordingOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.motionRecording, '0')
+  }
+  async cameraSoundNotificationOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.soundNotification, '1')
+  }
+  async cameraSoundNotificationOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.soundNotification, '0')
+  }
+  // Floodlight and spotlight share property P1056 (1 = on, 2 = off).
+  async cameraFloodLightOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.light, '1')
+  }
+  async cameraFloodLightOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.light, '2')
+  }
+  async cameraSpotLightOn(device) {
+    return await this.cameraFloodLightOn(device)
+  }
+  async cameraSpotLightOff(device) {
+    return await this.cameraFloodLightOff(device)
+  }
+
+  /**
+  * Plug controls
+  */
+  async plugTurnOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, 'P3', '1')
+  }
+  async plugTurnOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, 'P3', '0')
+  }
+
+  /**
+  * Camera filters
+  */
+  async getCameras() {
+    return await this.getDevicesByType('Camera')
+  }
+  async getCameraByName(name) {
+    const cams = await this.getCameras()
+    return cams.find(c => (c.nickname || '').toLowerCase() === String(name).toLowerCase())
+  }
+  async getOnlineCameras() {
+    return (await this.getCameras()).filter(c => c.conn_state === 1)
+  }
+  async getOfflineCameras() {
+    return (await this.getCameras()).filter(c => c.conn_state !== 1)
   }
 
 }
