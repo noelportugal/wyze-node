@@ -123,10 +123,82 @@ await wyze.turnOffGroup(office)
 ## Camera helpers
 
 - wyze.getCameraThumbnail(device)  // latest thumbnail URL (supported models only; not real-time)
+- wyze.getCameras()
+- wyze.getCameraByName(name)
+- wyze.getOnlineCameras() / wyze.getOfflineCameras()
+
+### Camera streaming (WebRTC)
+
+- wyze.getCameraStreamInfo(device[, { substream }])  // raw get-streams response
+- wyze.getCameraSignalingInfo(device)  // { signalingUrl, iceServers, authToken }
+
+Returns the AWS Kinesis Video WebRTC **signaling URL + ICE/TURN servers** a
+WebRTC client needs to open a live stream. Establishing the peer connection and
+capturing frames (ffmpeg) is left to the caller.
 
 ```
-const cam = await wyze.getDeviceByName('Driveway')
+const cam = await wyze.getCameraByName('Driveway')
+const { signalingUrl, iceServers } = await wyze.getCameraSignalingInfo(cam)
+```
+
+### Camera events
+
+- wyze.getEventList({ deviceMacList, count, beginTime, endTime })  // motion/sound events
+- wyze.getEventVideoURL({ deviceMac, deviceModel, beginTime, endTime })  // cloud clip replay URL
+
+```
+const cam = await wyze.getDeviceByName('Front Camera')
+const events = await wyze.getEventList({ deviceMacList: [cam.mac] })
+const clip = await wyze.getEventVideoURL({ deviceMac: cam.mac, deviceModel: cam.product_model })
+```
+
+### Camera controls
+
+- wyze.cameraTurnOn(device) / wyze.cameraTurnOff(device)
+- wyze.cameraMotionOn(device) / wyze.cameraMotionOff(device)        // motion detection
+- wyze.cameraNotificationsOn(device) / wyze.cameraNotificationsOff(device)
+- wyze.cameraMotionRecordingOn(device) / wyze.cameraMotionRecordingOff(device)
+- wyze.cameraSoundNotificationOn(device) / wyze.cameraSoundNotificationOff(device)
+- wyze.cameraFloodLightOn(device) / wyze.cameraFloodLightOff(device)
+- wyze.cameraSpotLightOn(device) / wyze.cameraSpotLightOff(device)
+- wyze.cameraSirenOn(device) / wyze.cameraSirenOff(device)
+
+```
+const cam = await wyze.getCameraByName('Driveway')
 const url = await wyze.getCameraThumbnail(cam)
+await wyze.cameraMotionOff(cam)   // pause motion detection
+```
+
+## Plug controls
+
+- wyze.plugTurnOn(device)
+- wyze.plugTurnOff(device)
+
+## Wall switch controls (LD_SS1)
+
+- wyze.getIotProp(device[, keys])  // read switch state
+- wyze.setIotProp(device, propKey, value)  // low-level
+- wyze.wallSwitchPowerOn(device) / wyze.wallSwitchPowerOff(device)
+- wyze.wallSwitchIotOn(device) / wyze.wallSwitchIotOff(device)
+- wyze.wallSwitchLedOn(device) / wyze.wallSwitchLedOff(device)
+- wyze.wallSwitchVacationModeOn(device) / wyze.wallSwitchVacationModeOff(device)
+
+## Garage door
+
+- wyze.garageDoor(device)  // triggers a garage controller attached to a Wyze cam
+
+## Home Monitoring System (HMS)
+
+Requires an active Wyze Home Monitoring subscription (that's what binds an
+`hms_id` to your account).
+
+- wyze.getHmsId()
+- wyze.getHmsState(hmsId)
+- wyze.setHmsState(hmsId, 'home' | 'away' | 'off')
+
+```
+const hmsId = await wyze.getHmsId()
+await wyze.setHmsState(hmsId, 'away')
 ```
 
 ## Vacuum helpers (Wyze Robot Vacuum)

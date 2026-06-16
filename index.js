@@ -24,6 +24,39 @@ const EX_SERVICES = {
 const VACUUM_CONTROL_TYPE = { SWEEPING: 0, RECHARGE: 3, AREA_CLEAN: 6, QUICK_MAPPING: 7 }
 const VACUUM_CONTROL_VALUE = { STOP: 0, START: 1, PAUSE: 2, FALSE_PAUSE: 3 }
 
+// "olive" IoT-prop transport on the sirius host (wall switches, thermostats…).
+// signature2 = HMAC-MD5(md5(access_token + salt), body).
+const SIRIUS = {
+  baseUrl: 'https://wyze-sirius-service.wyzecam.com',
+  appId: '9319141212m2ik',
+  salt: 'wyze_app_secret_key_132',
+  appInfo: 'wyze_android_2.19.14',
+}
+const DEFAULT_IOT_KEYS = 'iot_state,switch-power,switch-iot,single_press_type,double_press_type,triple_press_type,long_press_type,palm-state'
+
+// Home Monitoring System (HMS) hosts. Uses the same olive signing.
+const HMS = {
+  membershipUrl: 'https://wyze-membership-service.wyzecam.com',
+  apiUrl: 'https://hms.api.wyze.com',
+}
+
+// "web" signing for the camera WebRTC stream-info endpoint.
+const WEB = {
+  baseUrl: 'https://app.wyzecam.com',
+  appId: 'strv_e7f78e9e7738dc50',
+  appInfo: 'wyze_web_2.3.1',
+  salt: 'gbJojEBViLklgwyyDikx5ztSvKBXI5oU',
+}
+
+// Camera control property IDs (ported from jfarmer08/wyze-api).
+const CAMERA_PROPERTY_IDS = {
+  notifications: 'P1',        // push notifications 1/0
+  motion: 'P1001',            // motion detection 1/0
+  motionRecording: 'P1047',   // event motion recording 1/0
+  soundNotification: 'P1048', // sound recording/notification 1/0
+  light: 'P1056',             // floodlight / spotlight: 1 = on, 2 = off
+}
+
 // The lock lives on the "ford" service, which uses a different signing scheme:
 // sign = md5(quote_plus(method + path + sortedParams + appSecret)).
 const FORD = {
@@ -893,6 +926,315 @@ class Wyze {
 
   async unlockDoor(device) {
     return await this.controlLock(device, 'remoteUnlock')
+  }
+
+  /**
+  * IoT-prop transport ("olive" signing on the sirius service), used by wall
+  * switches. signature2 = HMAC-MD5(md5(access_token + salt), body).
+  */
+  _oliveSignature(body) {
+    return _hmacMd5(_md5hex(`${this.accessToken}${SIRIUS.salt}`), body)
+  }
+
+  _siriusHeaders(signature, hasJson) {
+    const headers = {
+      'Accept-Encoding': 'gzip',
+      'User-Agent': this.userAgent,
+      'appid': SIRIUS.appId,
+      'appinfo': SIRIUS.appInfo,
+      'phoneid': this.phoneId,
+      'access_token': this.accessToken,
+      'signature2': signature,
+    }
+    if (hasJson) headers['Content-Type'] = 'application/json'
+    return headers
+  }
+
+  async getIotProp(device, keys = DEFAULT_IOT_KEYS) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const keysStr = Array.isArray(keys) ? keys.join(',') : keys
+    const send = async () => {
+      const payload = { keys: keysStr, did: this.deviceMac(device), nonce: String(moment().valueOf()) }
+      const body = Object.keys(payload).sort().map(k => `${k}=${payload[k]}`).join('&')
+      const headers = this._siriusHeaders(this._oliveSignature(body), false)
+      return await axios.get(`${SIRIUS.baseUrl}/plugin/sirius/get_iot_prop`, { headers, params: payload })
+    }
+    let result = await send()
+    if (result.data && (result.data.msg === 'AccessTokenError' || String(result.data.code) === '2001')) {
+      await this.getRefreshToken()
+      result = await send()
+    }
+    return result.data
+  }
+
+  async setIotProp(device, propKey, value) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const send = async () => {
+      const payload = {
+        did: this.deviceMac(device),
+        model: device.product_model,
+        props: { [propKey]: value },
+        is_sub_device: 0,
+        nonce: String(moment().valueOf()),
+      }
+      const body = JSON.stringify(payload)
+      const headers = this._siriusHeaders(this._oliveSignature(body), true)
+      return await axios.post(`${SIRIUS.baseUrl}/plugin/sirius/set_iot_prop_by_topic`, body, { headers })
+    }
+    let result = await send()
+    if (result.data && (result.data.msg === 'AccessTokenError' || String(result.data.code) === '2001')) {
+      await this.getRefreshToken()
+      result = await send()
+    }
+    return result.data
+  }
+
+  /**
+  * Wall switch (LD_SS1) controls. switch-power is the relay; switch-iot is the
+  * "smart control" mode. Values ported from jfarmer08/wyze-api.
+  */
+  async wallSwitchPowerOn(device) { return await this.setIotProp(device, 'switch-power', true) }
+  async wallSwitchPowerOff(device) { return await this.setIotProp(device, 'switch-power', false) }
+  async wallSwitchIotOn(device) { return await this.setIotProp(device, 'switch-iot', true) }
+  async wallSwitchIotOff(device) { return await this.setIotProp(device, 'switch-iot', false) }
+  async wallSwitchLedOn(device) { return await this.setIotProp(device, 'led_state', true) }
+  async wallSwitchLedOff(device) { return await this.setIotProp(device, 'led_state', false) }
+  async wallSwitchVacationModeOn(device) { return await this.setIotProp(device, 'vacation_mode', 0) }
+  async wallSwitchVacationModeOff(device) { return await this.setIotProp(device, 'vacation_mode', 1) }
+
+  /**
+  * Home Monitoring System (HMS) — arm/disarm via the Sense Hub. Uses olive
+  * signing on the membership + hms hosts.
+  */
+  async getPlanBindingListByUser() {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const payload = { group_id: 'hms', nonce: String(moment().valueOf()) }
+    const body = Object.keys(payload).sort().map(k => `${k}=${payload[k]}`).join('&')
+    const headers = this._siriusHeaders(this._oliveSignature(body), false)
+    const res = await axios.get(`${HMS.membershipUrl}/platform/v2/membership/get_plan_binding_list_by_user`, { headers, params: payload })
+    return res.data
+  }
+
+  // Extracts the HMS id from the plan binding list.
+  async getHmsId() {
+    const data = await this.getPlanBindingListByUser()
+    const bindings = (data && data.data && (data.data.binding_list || data.data.bindingList)) || []
+    for (const b of bindings) {
+      const devices = b.device_list || b.deviceList || []
+      for (const d of devices) {
+        const id = d.device_id || d.deviceId
+        if (id) return id
+      }
+    }
+    return null
+  }
+
+  async getHmsState(hmsId) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const payload = { hms_id: hmsId, nonce: String(moment().valueOf()) }
+    const body = Object.keys(payload).sort().map(k => `${k}=${payload[k]}`).join('&')
+    const headers = this._siriusHeaders(this._oliveSignature(body), false)
+    const res = await axios.get(`${HMS.apiUrl}/api/v1/monitoring/v1/profile/state-status`, { headers, params: payload })
+    return res.data
+  }
+
+  async monitoringProfileActive(hmsId, home, away) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const payload = { hms_id: hmsId } // signature covers hms_id only (no nonce)
+    const body = Object.keys(payload).sort().map(k => `${k}=${payload[k]}`).join('&')
+    const headers = this._siriusHeaders(this._oliveSignature(body), false)
+    headers['Authorization'] = this.accessToken
+    const data = [
+      { state: 'home', active: home },
+      { state: 'away', active: away },
+    ]
+    const res = await axios.patch(`${HMS.apiUrl}/api/v1/monitoring/v1/profile/active`, data, { headers, params: payload })
+    return res.data
+  }
+
+  async disableRemeAlarm(hmsId) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const res = await axios.delete(`${HMS.apiUrl}/api/v1/reme-alarm`, {
+      headers: { Authorization: this.accessToken, 'User-Agent': this.userAgent },
+      data: { hms_id: hmsId, remediation_id: 'emergency' },
+    })
+    return res.data
+  }
+
+  /**
+  * setHmsState — 'home', 'away', or 'off'/'disarm'
+  */
+  async setHmsState(hmsId, mode) {
+    if (mode === 'off' || mode === 'disarm') {
+      await this.disableRemeAlarm(hmsId)
+      return await this.monitoringProfileActive(hmsId, 0, 0)
+    } else if (mode === 'away') {
+      return await this.monitoringProfileActive(hmsId, 0, 1)
+    } else if (mode === 'home') {
+      return await this.monitoringProfileActive(hmsId, 1, 0)
+    }
+    throw new Error(`Unknown HMS mode '${mode}' (use 'home', 'away', or 'off')`)
+  }
+
+  /**
+  * Camera controls (ported from jfarmer08/wyze-api). Each takes a camera device
+  * object.
+  */
+  async cameraTurnOn(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'power_on')
+  }
+  async cameraTurnOff(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'power_off')
+  }
+  async cameraSirenOn(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'siren_on')
+  }
+  async cameraSirenOff(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'siren_off')
+  }
+  async cameraMotionOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.motion, 1)
+  }
+  async cameraMotionOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.motion, 0)
+  }
+  async cameraNotificationsOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.notifications, '1')
+  }
+  async cameraNotificationsOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.notifications, '0')
+  }
+  async cameraMotionRecordingOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.motionRecording, '1')
+  }
+  async cameraMotionRecordingOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.motionRecording, '0')
+  }
+  async cameraSoundNotificationOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.soundNotification, '1')
+  }
+  async cameraSoundNotificationOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.soundNotification, '0')
+  }
+  // Floodlight and spotlight share property P1056 (1 = on, 2 = off).
+  async cameraFloodLightOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.light, '1')
+  }
+  async cameraFloodLightOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, CAMERA_PROPERTY_IDS.light, '2')
+  }
+  async cameraSpotLightOn(device) {
+    return await this.cameraFloodLightOn(device)
+  }
+  async cameraSpotLightOff(device) {
+    return await this.cameraFloodLightOff(device)
+  }
+
+  /**
+  * garageDoor — triggers the garage-door controller attached to a Wyze camera.
+  */
+  async garageDoor(device) {
+    return await this.runAction(this.deviceMac(device), device.product_model, 'garage_door_trigger')
+  }
+
+  /**
+  * getCameraStreamInfo — WebRTC connection info for a camera (signaling URL +
+  * ICE servers). This is the descriptor a WebRTC client needs to open a live
+  * stream; it does not itself stream. Uses the "web" signing scheme.
+  */
+  async getCameraStreamInfo(device, { substream = false } = {}) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const parameters = { use_trickle: true }
+    if (substream) parameters.sub_stream = true
+    const payload = {
+      device_list: [
+        {
+          device_id: this.deviceMac(device),
+          device_model: device.product_model,
+          provider: 'webrtc',
+          parameters,
+        },
+      ],
+      nonce: String(moment().valueOf()),
+    }
+    const body = JSON.stringify(payload)
+    const signature = _hmacMd5(_md5hex(`${this.accessToken}${WEB.salt}`), body)
+    const headers = {
+      'Accept-Encoding': 'gzip',
+      'Content-Type': 'application/json',
+      'User-Agent': this.userAgent,
+      appId: WEB.appId,
+      appInfo: WEB.appInfo,
+      phoneid: this.phoneId,
+      access_token: this.accessToken,
+      Authorization: this.accessToken,
+      signature2: signature,
+    }
+    const res = await axios.post(`${WEB.baseUrl}/app/v4/camera/get-streams`, body, { headers })
+    return res.data
+  }
+
+  /**
+  * getCameraSignalingInfo — convenience: just the signaling URL + ICE servers.
+  */
+  async getCameraSignalingInfo(device, options = {}) {
+    const data = await this.getCameraStreamInfo(device, options)
+    const list = data && data.data
+    const info = (Array.isArray(list) ? list[0] : list) || {}
+    const params = info.params || info
+    return {
+      signalingUrl: params.signaling_url || null,
+      iceServers: params.ice_servers || [],
+      authToken: params.auth_token || params.client_id || null,
+    }
+  }
+
+  /**
+  * Plug controls
+  */
+  async plugTurnOn(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, 'P3', '1')
+  }
+  async plugTurnOff(device) {
+    return await this.setProperty(this.deviceMac(device), device.product_model, 'P3', '0')
+  }
+
+  /**
+  * Camera filters
+  */
+  async getCameras() {
+    return await this.getDevicesByType('Camera')
+  }
+  async getCameraByName(name) {
+    const cams = await this.getCameras()
+    return cams.find(c => (c.nickname || '').toLowerCase() === String(name).toLowerCase())
+  }
+  async getOnlineCameras() {
+    return (await this.getCameras()).filter(c => c.conn_state === 1)
+  }
+  async getOfflineCameras() {
+    return (await this.getCameras()).filter(c => c.conn_state !== 1)
   }
 
 }
