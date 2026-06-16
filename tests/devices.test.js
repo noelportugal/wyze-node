@@ -1,7 +1,7 @@
 'use strict'
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const Wyze = require('../index.js')
+const Wyze = require('../src/index.js')
 
 const wyze = new Wyze({ username: 'test@example.com', password: 'x' })
 

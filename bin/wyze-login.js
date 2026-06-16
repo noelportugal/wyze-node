@@ -22,7 +22,7 @@ const readline = require('readline')
 
 // Keep the token store (./scratch) next to the package, not the caller's cwd.
 process.chdir(path.join(__dirname, '..'))
-const Wyze = require('../index.js')
+const Wyze = require('../src/index.js')
 
 // One shared interface for every prompt (sequential reuse works on both a TTY
 // and piped stdin; a fresh interface per prompt closes the stream on a pipe).

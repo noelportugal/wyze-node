@@ -3,7 +3,7 @@
   "version": "2.10.0",
   "description": "An unoficial API wrapper for Wyze products.",
   "homepage": "https://github.com/noelportugal/wyze-node",
-  "main": "index.js",
+  "main": "src/index.js",
   "bin": {
     "wyze-login": "bin/wyze-login.js"
   },

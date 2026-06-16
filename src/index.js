@@ -8,8 +8,8 @@ const localStorage = new LocalStorage('./scratch')
 const {
   EX_SERVICES, VACUUM_CONTROL_TYPE, VACUUM_CONTROL_VALUE, SIRIUS, DEFAULT_IOT_KEYS,
   HMS, WEB, CAMERA_PROPERTY_IDS, FORD, BULB_PROPERTY_IDS, BULB_MODELS,
-} = require('./src/constants')
-const { md5hex: _md5hex, hmacMd5: _hmacMd5, quotePlus: _quotePlus, sortedParams: _sortedParams } = require('./src/crypto')
+} = require('./constants')
+const { md5hex: _md5hex, hmacMd5: _hmacMd5, quotePlus: _quotePlus, sortedParams: _sortedParams } = require('./crypto')
 
 class Wyze {
   /**
@@ -1161,7 +1161,7 @@ class Wyze {
     const bundle = await this.getCameraSignalingInfo(device)
     const { signalingUrl, iceServers } = this._normalizeStreamBundle(bundle)
     if (!signalingUrl) throw new Error('No signaling URL returned for this camera (is it online?)')
-    const { captureStreamFrame } = require('./src/cameraStream')
+    const { captureStreamFrame } = require('./cameraStream')
     return await captureStreamFrame({ signalingUrl, iceServers, timeoutMs, logger })
   }
 

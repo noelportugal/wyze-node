@@ -67,7 +67,11 @@ const wyze = new Wyze(options)
 ```
 
 ## Run
-`username=first.last@email.com password=123456 WYZE_KEY_ID=xxxx WYZE_API_KEY=yyyy node index.js`
+Save the example above to a file and run it with your credentials in the environment:
+
+`username=first.last@email.com password=123456 WYZE_KEY_ID=xxxx WYZE_API_KEY=yyyy node your-script.js`
+
+Or bootstrap a token once interactively (no password on disk): `npm run login`.
 
 ## Helper methods
 
