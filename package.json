@@ -1,6 +1,6 @@
 {
   "name": "wyze-node",
-  "version": "2.12.0",
+  "version": "2.12.1",
   "description": "An unoficial API wrapper for Wyze products.",
   "homepage": "https://github.com/noelportugal/wyze-node",
   "main": "src/index.js",
@@ -40,8 +40,14 @@
     "ws": "^8.18.0"
   },
   "peerDependenciesMeta": {
-    "ffmpeg-static": { "optional": true },
-    "werift": { "optional": true },
-    "ws": { "optional": true }
+    "ffmpeg-static": {
+      "optional": true
+    },
+    "werift": {
+      "optional": true
+    },
+    "ws": {
+      "optional": true
+    }
   }
 }
