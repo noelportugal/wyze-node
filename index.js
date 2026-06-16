@@ -24,6 +24,21 @@ const EX_SERVICES = {
 const VACUUM_CONTROL_TYPE = { SWEEPING: 0, RECHARGE: 3, AREA_CLEAN: 6, QUICK_MAPPING: 7 }
 const VACUUM_CONTROL_VALUE = { STOP: 0, START: 1, PAUSE: 2, FALSE_PAUSE: 3 }
 
+// The lock lives on the "ford" service, which uses a different signing scheme:
+// sign = md5(quote_plus(method + path + sortedParams + appSecret)).
+const FORD = {
+  baseUrl: 'https://yd-saas-toc.wyzecam.com',
+  appKey: '275965684684dbdaf29a0ed9',
+  appSecret: '4deekof1ba311c5c33a9cb8e12787e8c',
+  appVersion: '2.19.14',
+}
+
+// Python urllib quote_plus equivalent (used inside the ford signature).
+const _quotePlus = (s) => encodeURIComponent(s)
+  .replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+  .replace(/%20/g, '+')
+const _sortedParams = (obj) => Object.keys(obj).sort().map(k => `${k}=${obj[k]}`).join('&')
+
 // Property IDs used by the bulb/light convenience helpers.
 const BULB_PROPERTY_IDS = {
   brightness: 'P1501',   // 0-100
@@ -797,6 +812,87 @@ class Wyze {
   */
   async dockVacuum(device) {
     return await this.controlVacuum(device, VACUUM_CONTROL_TYPE.RECHARGE, VACUUM_CONTROL_VALUE.START)
+  }
+
+  /**
+  * Signed request to the "ford" lock service. Signing differs from exServiceCall:
+  * sign = md5(quote_plus(method + path + sortedParams + appSecret)), and the
+  * access token / key / timestamp / sign travel in the params (GET) or body
+  * (POST), not headers.
+  * @param {string} path e.g. '/openapi/lock/v1/info'
+  * @param {object} opts { method='GET', params, json }
+  * @returns {data}
+  */
+  async fordServiceCall(path, { method = 'GET', params = null, json = null } = {}) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+
+    const send = async () => {
+      const nonce = moment().valueOf()
+      const headers = {
+        'appVer': `And-${FORD.appVersion}`,
+        'language': 'en_US',
+        'Keep-Alive': 'timeout=120',
+        'User-Agent': 'okhttp/4.7.2',
+        'Accept-Encoding': 'gzip',
+      }
+      if (method === 'GET') {
+        const p = { ...(params || {}), access_token: this.accessToken, key: FORD.appKey, timestamp: String(nonce) }
+        p.sign = _md5hex(_quotePlus(`get${path}${_sortedParams(p)}${FORD.appSecret}`))
+        return await axios({ method: 'GET', url: `${FORD.baseUrl}${path}`, headers, params: p })
+      }
+      // POST uses camelCase accessToken (per the ford API)
+      const body = { ...(json || {}), accessToken: this.accessToken, key: FORD.appKey, timestamp: String(nonce) }
+      body.sign = _md5hex(_quotePlus(`${method.toLowerCase()}${path}${_sortedParams(body)}${FORD.appSecret}`))
+      headers['Content-Type'] = 'application/json;charset=utf-8'
+      return await axios({ method, url: `${FORD.baseUrl}${path}`, headers, data: JSON.stringify(body) })
+    }
+
+    let result = await send()
+    const d = result.data || {}
+    if (d.msg === 'AccessTokenError' || String(d.code) === '2001' || String(d.ErrNo) === '2001') {
+      await this.getRefreshToken()
+      result = await send()
+    }
+    return result.data
+  }
+
+  /**
+  * Lock helpers (Wyze Lock). The lock is addressed by `uuid`, which is the
+  * device mac with its model prefix removed (e.g. 'YD_BT1.abc123' -> 'abc123').
+  */
+
+  lockUuid(device) {
+    const mac = this.deviceMac(device) || ''
+    return mac.includes('.') ? mac.slice(mac.indexOf('.') + 1) : mac
+  }
+
+  /**
+  * getLockInfo — lock state, battery, door state, etc. (read-only)
+  */
+  async getLockInfo(device) {
+    return await this.fordServiceCall('/openapi/lock/v1/info', {
+      method: 'GET', params: { uuid: this.lockUuid(device), with_keypad: 1 },
+    })
+  }
+
+  async controlLock(device, action) {
+    return await this.fordServiceCall('/openapi/lock/v1/control', {
+      method: 'POST', json: { uuid: this.lockUuid(device), action },
+    })
+  }
+
+  /**
+  * lockDoor / unlockDoor
+  */
+  async lockDoor(device) {
+    return await this.controlLock(device, 'remoteLock')
+  }
+
+  async unlockDoor(device) {
+    return await this.controlLock(device, 'remoteUnlock')
   }
 
 }
