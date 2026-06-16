@@ -147,6 +147,22 @@ await wyze.startVacuum(vac)
 await wyze.dockVacuum(vac)
 ```
 
+## Lock helpers (Wyze Lock)
+
+The lock uses the separate "ford" service (its own signing scheme, handled for
+you). `getLockInfo` is read-only and returns lock state, battery, door state, etc.
+
+- wyze.getLockInfo(device)
+- wyze.lockDoor(device)
+- wyze.unlockDoor(device)
+- wyze.controlLock(device, action)  // low-level ('remoteLock' / 'remoteUnlock')
+
+```
+const lock = await wyze.getDeviceByName('Front Door Lock')
+const info = await wyze.getLockInfo(lock)   // info.device.locker_status, power, etc.
+await wyze.lockDoor(lock)
+```
+
 ## Internal methods
 
 - wyze.login()
@@ -156,6 +172,7 @@ await wyze.dockVacuum(vac)
 - wyze.runActionList(instanceId, providerKey, actionKey, plist)
 - wyze.runActionListBatch(actions)  // apply across multiple devices in one call
 - wyze.exServiceCall(svc, path, opts)  // signed request to a Wyze "Ex" service
+- wyze.fordServiceCall(path, opts)  // signed request to the Wyze "ford" (lock) service
 - wyze.getDeviceInfo(deviceMac, deviceModel)
 - wyze.getPropertyList(deviceMac, deviceModel)
 - wyze.setProperty(deviceMac, deviceModel, propertyId, propertyValue)
