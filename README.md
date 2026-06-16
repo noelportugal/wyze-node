@@ -127,6 +127,20 @@ await wyze.turnOffGroup(office)
 - wyze.getCameraByName(name)
 - wyze.getOnlineCameras() / wyze.getOfflineCameras()
 
+### Camera streaming (WebRTC)
+
+- wyze.getCameraStreamInfo(device[, { substream }])  // raw get-streams response
+- wyze.getCameraSignalingInfo(device)  // { signalingUrl, iceServers, authToken }
+
+Returns the AWS Kinesis Video WebRTC **signaling URL + ICE/TURN servers** a
+WebRTC client needs to open a live stream. Establishing the peer connection and
+capturing frames (ffmpeg) is left to the caller.
+
+```
+const cam = await wyze.getCameraByName('Driveway')
+const { signalingUrl, iceServers } = await wyze.getCameraSignalingInfo(cam)
+```
+
 ### Camera controls
 
 - wyze.cameraTurnOn(device) / wyze.cameraTurnOff(device)

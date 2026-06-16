@@ -40,6 +40,14 @@ const HMS = {
   apiUrl: 'https://hms.api.wyze.com',
 }
 
+// "web" signing for the camera WebRTC stream-info endpoint.
+const WEB = {
+  baseUrl: 'https://app.wyzecam.com',
+  appId: 'strv_e7f78e9e7738dc50',
+  appInfo: 'wyze_web_2.3.1',
+  salt: 'gbJojEBViLklgwyyDikx5ztSvKBXI5oU',
+}
+
 // Camera control property IDs (ported from jfarmer08/wyze-api).
 const CAMERA_PROPERTY_IDS = {
   notifications: 'P1',        // push notifications 1/0
@@ -1145,6 +1153,61 @@ class Wyze {
   */
   async garageDoor(device) {
     return await this.runAction(this.deviceMac(device), device.product_model, 'garage_door_trigger')
+  }
+
+  /**
+  * getCameraStreamInfo — WebRTC connection info for a camera (signaling URL +
+  * ICE servers). This is the descriptor a WebRTC client needs to open a live
+  * stream; it does not itself stream. Uses the "web" signing scheme.
+  */
+  async getCameraStreamInfo(device, { substream = false } = {}) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const parameters = { use_trickle: true }
+    if (substream) parameters.sub_stream = true
+    const payload = {
+      device_list: [
+        {
+          device_id: this.deviceMac(device),
+          device_model: device.product_model,
+          provider: 'webrtc',
+          parameters,
+        },
+      ],
+      nonce: String(moment().valueOf()),
+    }
+    const body = JSON.stringify(payload)
+    const signature = _hmacMd5(_md5hex(`${this.accessToken}${WEB.salt}`), body)
+    const headers = {
+      'Accept-Encoding': 'gzip',
+      'Content-Type': 'application/json',
+      'User-Agent': this.userAgent,
+      appId: WEB.appId,
+      appInfo: WEB.appInfo,
+      phoneid: this.phoneId,
+      access_token: this.accessToken,
+      Authorization: this.accessToken,
+      signature2: signature,
+    }
+    const res = await axios.post(`${WEB.baseUrl}/app/v4/camera/get-streams`, body, { headers })
+    return res.data
+  }
+
+  /**
+  * getCameraSignalingInfo — convenience: just the signaling URL + ICE servers.
+  */
+  async getCameraSignalingInfo(device, options = {}) {
+    const data = await this.getCameraStreamInfo(device, options)
+    const list = data && data.data
+    const info = (Array.isArray(list) ? list[0] : list) || {}
+    const params = info.params || info
+    return {
+      signalingUrl: params.signaling_url || null,
+      iceServers: params.ice_servers || [],
+      authToken: params.auth_token || params.client_id || null,
+    }
   }
 
   /**
