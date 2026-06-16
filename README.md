@@ -162,6 +162,20 @@ await wyze.cameraMotionOff(cam)   // pause motion detection
 
 - wyze.garageDoor(device)  // triggers a garage controller attached to a Wyze cam
 
+## Home Monitoring System (HMS)
+
+Requires an active Wyze Home Monitoring subscription (that's what binds an
+`hms_id` to your account).
+
+- wyze.getHmsId()
+- wyze.getHmsState(hmsId)
+- wyze.setHmsState(hmsId, 'home' | 'away' | 'off')
+
+```
+const hmsId = await wyze.getHmsId()
+await wyze.setHmsState(hmsId, 'away')
+```
+
 ## Vacuum helpers (Wyze Robot Vacuum)
 
 The vacuum lives on a separate Wyze service that requires signed requests; the

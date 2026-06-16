@@ -34,6 +34,12 @@ const SIRIUS = {
 }
 const DEFAULT_IOT_KEYS = 'iot_state,switch-power,switch-iot,single_press_type,double_press_type,triple_press_type,long_press_type,palm-state'
 
+// Home Monitoring System (HMS) hosts. Uses the same olive signing.
+const HMS = {
+  membershipUrl: 'https://wyze-membership-service.wyzecam.com',
+  apiUrl: 'https://hms.api.wyze.com',
+}
+
 // Camera control property IDs (ported from jfarmer08/wyze-api).
 const CAMERA_PROPERTY_IDS = {
   notifications: 'P1',        // push notifications 1/0
@@ -993,6 +999,92 @@ class Wyze {
   async wallSwitchLedOff(device) { return await this.setIotProp(device, 'led_state', false) }
   async wallSwitchVacationModeOn(device) { return await this.setIotProp(device, 'vacation_mode', 0) }
   async wallSwitchVacationModeOff(device) { return await this.setIotProp(device, 'vacation_mode', 1) }
+
+  /**
+  * Home Monitoring System (HMS) — arm/disarm via the Sense Hub. Uses olive
+  * signing on the membership + hms hosts.
+  */
+  async getPlanBindingListByUser() {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const payload = { group_id: 'hms', nonce: String(moment().valueOf()) }
+    const body = Object.keys(payload).sort().map(k => `${k}=${payload[k]}`).join('&')
+    const headers = this._siriusHeaders(this._oliveSignature(body), false)
+    const res = await axios.get(`${HMS.membershipUrl}/platform/v2/membership/get_plan_binding_list_by_user`, { headers, params: payload })
+    return res.data
+  }
+
+  // Extracts the HMS id from the plan binding list.
+  async getHmsId() {
+    const data = await this.getPlanBindingListByUser()
+    const bindings = (data && data.data && (data.data.binding_list || data.data.bindingList)) || []
+    for (const b of bindings) {
+      const devices = b.device_list || b.deviceList || []
+      for (const d of devices) {
+        const id = d.device_id || d.deviceId
+        if (id) return id
+      }
+    }
+    return null
+  }
+
+  async getHmsState(hmsId) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const payload = { hms_id: hmsId, nonce: String(moment().valueOf()) }
+    const body = Object.keys(payload).sort().map(k => `${k}=${payload[k]}`).join('&')
+    const headers = this._siriusHeaders(this._oliveSignature(body), false)
+    const res = await axios.get(`${HMS.apiUrl}/api/v1/monitoring/v1/profile/state-status`, { headers, params: payload })
+    return res.data
+  }
+
+  async monitoringProfileActive(hmsId, home, away) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const payload = { hms_id: hmsId } // signature covers hms_id only (no nonce)
+    const body = Object.keys(payload).sort().map(k => `${k}=${payload[k]}`).join('&')
+    const headers = this._siriusHeaders(this._oliveSignature(body), false)
+    headers['Authorization'] = this.accessToken
+    const data = [
+      { state: 'home', active: home },
+      { state: 'away', active: away },
+    ]
+    const res = await axios.patch(`${HMS.apiUrl}/api/v1/monitoring/v1/profile/active`, data, { headers, params: payload })
+    return res.data
+  }
+
+  async disableRemeAlarm(hmsId) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const res = await axios.delete(`${HMS.apiUrl}/api/v1/reme-alarm`, {
+      headers: { Authorization: this.accessToken, 'User-Agent': this.userAgent },
+      data: { hms_id: hmsId, remediation_id: 'emergency' },
+    })
+    return res.data
+  }
+
+  /**
+  * setHmsState — 'home', 'away', or 'off'/'disarm'
+  */
+  async setHmsState(hmsId, mode) {
+    if (mode === 'off' || mode === 'disarm') {
+      await this.disableRemeAlarm(hmsId)
+      return await this.monitoringProfileActive(hmsId, 0, 0)
+    } else if (mode === 'away') {
+      return await this.monitoringProfileActive(hmsId, 0, 1)
+    } else if (mode === 'home') {
+      return await this.monitoringProfileActive(hmsId, 1, 0)
+    }
+    throw new Error(`Unknown HMS mode '${mode}' (use 'home', 'away', or 'off')`)
+  }
 
   /**
   * Camera controls (ported from jfarmer08/wyze-api). Each takes a camera device
