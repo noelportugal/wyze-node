@@ -7,7 +7,7 @@ const localStorage = new LocalStorage('./scratch')
 
 const {
   EX_SERVICES, VACUUM_CONTROL_TYPE, VACUUM_CONTROL_VALUE, SIRIUS, DEFAULT_IOT_KEYS,
-  HMS, WEB, CAMERA_PROPERTY_IDS, FORD, BULB_PROPERTY_IDS, BULB_MODELS,
+  HMS, WEB, CAMERA_PROPERTY_IDS, FORD, SCALE, BULB_PROPERTY_IDS, BULB_MODELS,
 } = require('./constants')
 const { md5hex: _md5hex, hmacMd5: _hmacMd5, quotePlus: _quotePlus, sortedParams: _sortedParams } = require('./crypto')
 
@@ -1014,6 +1014,54 @@ class Wyze {
       return await this.monitoringProfileActive(hmsId, 1, 0)
     }
     throw new Error(`Unknown HMS mode '${mode}' (use 'home', 'away', or 'off')`)
+  }
+
+  /**
+  * Generic olive-signed GET to an arbitrary Wyze service host (used by the
+  * scale). Signs sorted params with the olive scheme and refreshes on token error.
+  */
+  async _oliveGet(baseUrl, path, params = {}) {
+    await this.getTokens();
+    if (!this.accessToken) {
+      await this.login()
+    }
+    const send = async () => {
+      const p = { ...params, nonce: String(moment().valueOf()) }
+      const body = Object.keys(p).sort().map(k => `${k}=${p[k]}`).join('&')
+      const headers = this._siriusHeaders(this._oliveSignature(body), false)
+      return await axios.get(`${baseUrl}${path}`, { headers, params: p })
+    }
+    let result = await send()
+    if (result.data && (result.data.msg === 'AccessTokenError' || String(result.data.code) === '2001')) {
+      await this.getRefreshToken()
+      result = await send()
+    }
+    return result.data
+  }
+
+  /**
+  * Scale helpers (Wyze Scale). `device` is the scale device object; its mac is
+  * the scale device id. Records include weight + body composition (BMI, body
+  * fat %, water %, BMR, etc.).
+  */
+  async getScaleLatestRecord(device, { userId } = {}) {
+    const params = { did: this.deviceMac(device) }
+    if (userId) params.family_member_id = userId
+    return await this._oliveGet(SCALE.baseUrl, '/plugin/scale/get_latest_record', params)
+  }
+
+  async getScaleRecords(device, { userId, startTime = 0, endTime = Date.now() } = {}) {
+    const params = {
+      did: this.deviceMac(device),
+      start_time: String(Math.floor(startTime / 1000)),
+      end_time: String(Math.floor(endTime / 1000)),
+    }
+    if (userId) params.family_member_id = userId
+    return await this._oliveGet(SCALE.baseUrl, '/plugin/scale/get_record_range', params)
+  }
+
+  async getScaleFamilyMembers(device) {
+    return await this._oliveGet(SCALE.baseUrl, '/plugin/scale/get_family_member', { did: this.deviceMac(device) })
   }
 
   /**
