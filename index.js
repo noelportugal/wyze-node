@@ -13,11 +13,15 @@ class Wyze {
   constructor(options) {
     this.username = options.username
     this.password = options.password
-    this.xApiKey = options.xApiKey || 'WMXHYf79Nr5gIlt3r0r7p9Tcw5bvs6BB4U8O8nGJ'
+    // Wyze developer API credentials (required since 2023). Generate at
+    // https://developer-api-console.wyze.com/#/apikey/view
+    this.keyId = options.keyId || process.env.keyId || process.env.WYZE_KEY_ID
+    this.apiKey = options.apiKey || process.env.apiKey || process.env.WYZE_API_KEY
+    this.xApiKey = options.xApiKey || 'RckMFKbsds5p6QY3COEXc2ABwNTYY0q18ziEiSEm'
     this.userAgent = options.userAgent || 'wyze_ios_2.21.35'
     this.phoneId = options.phoneId || 'bc151f39-787b-4871-be27-5a20fd0a1937'
-    this.authUrl = options.authUrl || 'https://auth-prod.api.wyze.com/v3'
-    this.baseUrl = options.baseUrl || 'https://api.wyzecam.com:8443'
+    this.authUrl = options.authUrl || 'https://auth-prod.api.wyze.com'
+    this.baseUrl = options.baseUrl || 'https://api.wyzecam.com'
     this.baseV1Url = options.baseV1Url || 'https://beta-ams-api.wyzecam.com'
     this.appVer = options.appVer || 'com.hualai.WyzeCam___2.3.69'
     this.sc = '9f275790cab94a72bd206c8876429f3c'
@@ -66,23 +70,46 @@ class Wyze {
    * @returns {data}
    */
   async login() {
+    if (!this.keyId || !this.apiKey) {
+      throw new Error(
+        'Wyze requires a developer API key to log in. Set keyId and apiKey ' +
+        '(options, or WYZE_KEY_ID / WYZE_API_KEY env vars). Generate one at ' +
+        'https://developer-api-console.wyze.com/#/apikey/view'
+      )
+    }
     let result
     try {
-
+      // Login body: time-based nonce + triple-md5 password (no access_token here)
       const data = {
+        nonce: String(moment().valueOf()),
         email: this.username,
         password: md5(md5(md5((this.password)))),
       }
 
-     let options = {
-       headers: {
-        'x-api-key': this.xApiKey,
-        'user-agent': this.userAgent,
-        'phone-id': this.phoneId,
-       }
-     }
+      const options = {
+        headers: {
+          'x-api-key': this.xApiKey,
+          'apikey': this.apiKey,
+          'keyid': this.keyId,
+          'user-agent': this.userAgent,
+          'phone-id': this.phoneId,
+          'content-type': 'application/json',
+        },
+      }
 
-      result = await axios.post(`${this.authUrl}/user/login`, await this.getRequestBodyData(data), await options)
+      result = await axios.post(`${this.authUrl}/api/user/login`, data, options)
+
+      if (!result.data || !result.data.access_token) {
+        if (result.data && (result.data.mfa_options || result.data.mfa_details || result.data.sms_session_id)) {
+          throw new Error(
+            'Wyze login requires 2FA that the API key did not satisfy. Generate a ' +
+            'fresh developer API key (it acts as the second factor) at ' +
+            'https://developer-api-console.wyze.com/#/apikey/view'
+          )
+        }
+        throw new Error('Wyze login failed: ' + JSON.stringify(result.data))
+      }
+
       this.setTokens(result.data['access_token'], result.data['refresh_token'])
     }
     catch (e) {
