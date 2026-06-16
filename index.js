@@ -5,6 +5,23 @@ const moment = require('moment')
 const LocalStorage = require('node-localstorage').LocalStorage
 const localStorage = new LocalStorage('./scratch')
 
+// Property IDs used by the bulb/light convenience helpers.
+const BULB_PROPERTY_IDS = {
+  brightness: 'P1501',   // 0-100
+  colorTemp: 'P1502',    // color temperature in Kelvin (~1800-6500)
+  color: 'P1507',        // 'RRGGBB' hex (mesh / color bulbs only)
+  controlLight: 'P1508', // light strips: 1 = color, 2 = temperature
+  sunMatch: 'P1528',     // 0/1 — mimic natural sunlight
+}
+
+// Model codes that drive transport selection. Mesh bulbs and light strips apply
+// properties via set_mesh_property (run_action_list); plain white bulbs don't.
+// Model is used (not product_type) because group members only expose the model.
+const BULB_MODELS = {
+  lightStrip: ['HL_LSL', 'HL_LSLP'],
+  mesh: ['WLPA19C', 'HL_LSL', 'HL_LSLP'],
+}
+
 class Wyze {
   /**
    * @param {object} options
@@ -335,6 +352,62 @@ class Wyze {
   }
 
   /**
+  * run an action list against a single device. Used by mesh bulbs / light
+  * strips, which apply properties via `set_mesh_property` instead of the plain
+  * set_property endpoint.
+  * @param {string} instanceId device mac
+  * @param {string} providerKey device model
+  * @param {string} actionKey e.g. 'set_mesh_property'
+  * @param {Array<{pid:string,pvalue:(string|number)}>} plist properties to set
+  * @returns {data}
+  */
+  async runActionList(instanceId, providerKey, actionKey, plist = []) {
+    return await this.runActionListBatch([
+      { mac: instanceId, model: providerKey, actionKey, plist },
+    ])
+  }
+
+  /**
+  * run an action list across one or more devices in a single request. This is
+  * how the app applies a property to a whole group of mesh bulbs at once.
+  * @param {Array<{mac:string,model:string,actionKey:string,plist:Array<{pid:string,pvalue:(string|number)}>}>} actions
+  * @returns {data}
+  */
+  async runActionListBatch(actions = []) {
+    let result
+    try {
+      await this.getTokens();
+      if (!this.accessToken) {
+        await this.login()
+      }
+      const data = {
+        action_list: actions.map(a => ({
+          action_key: a.actionKey,
+          action_params: {
+            list: [
+              {
+                mac: a.mac,
+                plist: (a.plist || []).map(p => ({ pid: p.pid, pvalue: String(p.pvalue) })),
+              },
+            ],
+          },
+          instance_id: a.mac,
+          provider_key: a.model,
+        })),
+      }
+      result = await axios.post(`${this.baseUrl}/app/v2/auto/run_action_list`, await this.getRequestBodyData(data))
+      if (result.data.msg === 'AccessTokenError') {
+        await this.getRefreshToken()
+        return this.runActionListBatch(actions)
+      }
+    }
+    catch (e) {
+      throw e
+    }
+    return result.data
+  }
+
+  /**
   * Helper functions
   */
 
@@ -429,6 +502,174 @@ class Wyze {
       state = device.device_params.open_close_state !== undefined ? (device.device_params.open_close_state === 1 ? 'open' : 'closed') : ''
     }
     return state
+  }
+
+  /**
+  * Bulb / light helpers
+  *
+  * Each accepts a device object (from getDeviceByName / getDeviceByMac) and
+  * picks the right transport automatically: mesh bulbs and light strips apply
+  * properties via run_action_list (set_mesh_property); regular bulbs use
+  * set_property.
+  */
+
+  // device objects use `mac`; group members use `device_mac`.
+  deviceMac(device) {
+    return device.mac || device.device_mac
+  }
+
+  isMeshBulb(device) {
+    const model = (device.product_model || '').toUpperCase()
+    if (BULB_MODELS.mesh.includes(model)) return true
+    const type = (device.product_type || '').toLowerCase()
+    return type === 'meshlight' || type === 'lightstrip'
+  }
+
+  isLightStrip(device) {
+    const model = (device.product_model || '').toUpperCase()
+    if (BULB_MODELS.lightStrip.includes(model)) return true
+    return (device.product_type || '').toLowerCase() === 'lightstrip'
+  }
+
+  async setBulbProperties(device, plist) {
+    const mac = this.deviceMac(device)
+    if (this.isMeshBulb(device)) {
+      return await this.runActionList(mac, device.product_model, 'set_mesh_property', plist)
+    }
+    let result
+    for (const p of plist) {
+      result = await this.setProperty(mac, device.product_model, p.pid, String(p.pvalue))
+    }
+    return result
+  }
+
+  /**
+  * setBrightness — brightness 0..100
+  */
+  async setBrightness(device, brightness) {
+    const value = Math.max(0, Math.min(100, Math.round(Number(brightness))))
+    return await this.setBulbProperties(device, [{ pid: BULB_PROPERTY_IDS.brightness, pvalue: value }])
+  }
+
+  /**
+  * setColorTemp — color temperature in Kelvin (~1800..6500)
+  */
+  async setColorTemp(device, kelvin) {
+    const value = Math.max(1800, Math.min(6500, Math.round(Number(kelvin))))
+    const plist = [{ pid: BULB_PROPERTY_IDS.colorTemp, pvalue: value }]
+    if (this.isLightStrip(device)) {
+      plist.push({ pid: BULB_PROPERTY_IDS.controlLight, pvalue: 2 }) // temperature mode
+    }
+    return await this.setBulbProperties(device, plist)
+  }
+
+  /**
+  * setColor — hex 'RRGGBB' (mesh / color bulbs and light strips only)
+  */
+  async setColor(device, hex) {
+    if (!this.isMeshBulb(device)) {
+      throw new Error('setColor is only supported on color/mesh bulbs and light strips')
+    }
+    const value = String(hex).replace(/^#/, '').toUpperCase()
+    if (!/^[0-9A-F]{6}$/.test(value)) {
+      throw new Error(`Invalid color '${hex}': expected 6-digit hex like 'FF0000'`)
+    }
+    const plist = [{ pid: BULB_PROPERTY_IDS.color, pvalue: value }]
+    if (this.isLightStrip(device)) {
+      plist.push({ pid: BULB_PROPERTY_IDS.controlLight, pvalue: 1 }) // color mode
+    }
+    return await this.setBulbProperties(device, plist)
+  }
+
+  /**
+  * setSunMatch — mimic natural sunlight (on/off)
+  */
+  async setSunMatch(device, on = true) {
+    return await this.setBulbProperties(device, [{ pid: BULB_PROPERTY_IDS.sunMatch, pvalue: on ? 1 : 0 }])
+  }
+
+  /**
+  * Group helpers
+  *
+  * Wyze has no native group-action endpoint, so these fan out to the group's
+  * member devices. Mesh bulbs are applied in a single batched run_action_list
+  * call; any non-mesh members fall back to per-device set_property.
+  */
+
+  /**
+  * getDeviceGroupByName
+  */
+  async getDeviceGroupByName(name) {
+    const groups = await this.getDeviceGroupsList()
+    return (groups || []).find(g => (g.group_name || '').toLowerCase() === String(name).toLowerCase())
+  }
+
+  async setGroupProperties(group, plist) {
+    const members = (group && group.device_list) || []
+    const results = []
+    const mesh = members.filter(m => this.isMeshBulb(m))
+    const regular = members.filter(m => !this.isMeshBulb(m))
+    if (mesh.length) {
+      results.push(await this.runActionListBatch(mesh.map(m => ({
+        mac: this.deviceMac(m),
+        model: m.product_model,
+        actionKey: 'set_mesh_property',
+        plist,
+      }))))
+    }
+    for (const m of regular) {
+      for (const p of plist) {
+        results.push(await this.setProperty(this.deviceMac(m), m.product_model, p.pid, String(p.pvalue)))
+      }
+    }
+    return results
+  }
+
+  async _groupRunAction(group, actionKey) {
+    const members = (group && group.device_list) || []
+    const results = []
+    for (const m of members) {
+      results.push(await this.runAction(this.deviceMac(m), m.product_model, actionKey))
+    }
+    return results
+  }
+
+  /**
+  * turnOnGroup / turnOffGroup
+  */
+  async turnOnGroup(group) {
+    return await this._groupRunAction(group, 'power_on')
+  }
+
+  async turnOffGroup(group) {
+    return await this._groupRunAction(group, 'power_off')
+  }
+
+  /**
+  * setGroupBrightness — brightness 0..100 for every bulb in the group
+  */
+  async setGroupBrightness(group, brightness) {
+    const value = Math.max(0, Math.min(100, Math.round(Number(brightness))))
+    return await this.setGroupProperties(group, [{ pid: BULB_PROPERTY_IDS.brightness, pvalue: value }])
+  }
+
+  /**
+  * setGroupColorTemp — color temperature in Kelvin for every bulb in the group
+  */
+  async setGroupColorTemp(group, kelvin) {
+    const value = Math.max(1800, Math.min(6500, Math.round(Number(kelvin))))
+    return await this.setGroupProperties(group, [{ pid: BULB_PROPERTY_IDS.colorTemp, pvalue: value }])
+  }
+
+  /**
+  * setGroupColor — hex 'RRGGBB' for every (color/mesh) bulb in the group
+  */
+  async setGroupColor(group, hex) {
+    const value = String(hex).replace(/^#/, '').toUpperCase()
+    if (!/^[0-9A-F]{6}$/.test(value)) {
+      throw new Error(`Invalid color '${hex}': expected 6-digit hex like 'FF0000'`)
+    }
+    return await this.setGroupProperties(group, [{ pid: BULB_PROPERTY_IDS.color, pvalue: value }])
   }
 
 }
