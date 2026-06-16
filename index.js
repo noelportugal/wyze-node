@@ -692,6 +692,17 @@ class Wyze {
   }
 
   /**
+  * getCameraThumbnail — returns the latest thumbnail URL for a camera, or null.
+  * Note: Wyze only populates this for some models (e.g. V2) and it is not
+  * real-time — it can lag behind by minutes/hours.
+  */
+  async getCameraThumbnail(device) {
+    const fresh = await this.getDeviceByMac(this.deviceMac(device))
+    const thumbs = fresh && fresh.device_params && fresh.device_params.camera_thumbnails
+    return (thumbs && thumbs.thumbnails_url) || null
+  }
+
+  /**
   * Signed request to a newer Wyze "Ex" service (vacuum, lock, …). These hosts
   * require an HMAC-MD5 `signature2` over the request body (POST) or sorted
   * params (GET), keyed on md5(access_token + service salt).
