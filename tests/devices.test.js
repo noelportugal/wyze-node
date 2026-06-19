@@ -58,3 +58,17 @@ test('_normalizeStreamBundle decodes a doubly-encoded signaling URL', () => {
   })
   assert.equal(out.signalingUrl, 'wss://kv.example/?X-Amz-Credential=AKIA%2Fus-west-2')
 })
+
+test('isTokenError matches all of Wyze\'s expired-token shapes', () => {
+  // legacy message
+  assert.equal(wyze.isTokenError({ msg: 'AccessTokenError' }), true)
+  // newer shape: code 2001 with a different message
+  assert.equal(wyze.isTokenError({ msg: 'access token is error', code: 2001 }), true)
+  assert.equal(wyze.isTokenError({ code: '2001' }), true)   // code as string
+  assert.equal(wyze.isTokenError({ ErrNo: '2001' }), true)  // ErrNo variant
+  // not token errors
+  assert.equal(wyze.isTokenError({ msg: 'SUCCESS', code: 1 }), false)
+  assert.equal(wyze.isTokenError({}), false)
+  assert.equal(wyze.isTokenError(null), false)
+  assert.equal(wyze.isTokenError(undefined), false)
+})
