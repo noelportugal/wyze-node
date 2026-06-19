@@ -32,10 +32,16 @@ The camera is offline. Live capture needs an online camera — check `getOnlineC
 `ffmpeg-static` failed to fetch a binary for your platform. Re-run `npm install`, or install `ffmpeg` on your system PATH as a fallback.
 
 **My script hangs after capturing a frame**
-The WebRTC stack (werift) keeps the Node event loop alive after a capture. For a one-shot CLI tool, call `process.exit(0)` once you've saved the image:
+By default (`relay: 'never'`) capture uses direct/STUN candidates only and the
+process drains on its own once the frame is saved — no `process.exit` needed.
+
+If you pass `{ relay: 'auto' }` (needed only when the camera isn't reachable on
+your local network), werift keeps a TURN keepalive timer that `pc.close()`
+doesn't clear, so the event loop stays alive. For a one-shot CLI in that mode,
+call `process.exit(0)` once you've saved the image:
 
 ```js
-const path = await wyze.saveCameraSnapshot(cam, 'frame.jpg')
+const path = await wyze.saveCameraSnapshot(cam, 'frame.jpg', { relay: 'auto' })
 console.log('saved', path)
 process.exit(0)
 ```

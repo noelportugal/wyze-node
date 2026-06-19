@@ -119,8 +119,8 @@ Wyze cameras stream over AWS Kinesis Video WebRTC using H.264. These helpers exp
 | --- | --- |
 | `getCameraSignalingInfo(device)` | Returns `{ signalingUrl, iceServers, authToken }` for a WebRTC session. |
 | `getCameraStreamInfo(device, { substream })` | Returns the raw stream-info response (optionally the lower-bitrate substream). |
-| `cameraCaptureSnapshot(device, { timeoutMs })` | Negotiates a live WebRTC session and returns a single JPEG frame as a `Buffer`. |
-| `saveCameraSnapshot(device, filePath)` | Captures a live frame and writes it to `filePath`, returning the path. |
+| `cameraCaptureSnapshot(device, { timeoutMs, relay })` | Negotiates a live WebRTC session and returns a single JPEG frame as a `Buffer`. |
+| `saveCameraSnapshot(device, filePath, { timeoutMs, relay })` | Captures a live frame and writes it to `filePath`, returning the path. |
 
 `cameraCaptureSnapshot()` and `saveCameraSnapshot()` open a real WebRTC session and pull one frame through ffmpeg, so they need a few optional dependencies that aren't installed by default:
 
@@ -146,3 +146,19 @@ const { signalingUrl, iceServers, authToken } = await wyze.getCameraSignalingInf
 ```
 
 > **⚠️** The camera must be **online** to capture a live frame — an offline camera has no signaling URL, so `cameraCaptureSnapshot()` and `saveCameraSnapshot()` will fail. Filter with `getOnlineCameras()` (or check the device's connection state) before attempting a live capture.
+
+#### TURN relay & clean exit (`relay`)
+
+Both capture methods accept a `relay` option:
+
+- **`'never'` (default)** — direct/STUN candidates only. Faster, and the process **exits on its own** after the capture. Ideal when you're on the same network as the camera (the usual case).
+- **`'auto'`** — also offers TURN relay servers, for when the camera isn't reachable on your local network. Note: werift keeps a TURN keepalive timer that survives `pc.close()`, so in this mode the Node event loop stays alive — call `process.exit(0)` after saving in a one-shot script.
+
+```js
+// Same network (default): captures and the process drains cleanly.
+await wyze.saveCameraSnapshot(cam, './frame.jpg')
+
+// Remote / relay-only network:
+await wyze.saveCameraSnapshot(cam, './frame.jpg', { relay: 'auto' })
+process.exit(0)
+```
