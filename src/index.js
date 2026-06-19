@@ -144,6 +144,21 @@ class Wyze {
   }
 
   /**
+   * Detect an expired/invalid access token in an API response so callers can
+   * refresh and retry. Wyze is inconsistent: older endpoints return
+   * `msg: 'AccessTokenError'`, newer ones return `code`/`ErrNo` `2001` with a
+   * message like `'access token is error'`. Match all of them.
+   * @param {object} data axios `response.data`
+   * @returns {boolean}
+   */
+  isTokenError(data) {
+    if (!data) return false
+    return data.msg === 'AccessTokenError' ||
+      String(data.code) === '2001' ||
+      String(data.ErrNo) === '2001'
+  }
+
+  /**
    * get objects list
    * @returns {data}
    */
@@ -155,7 +170,7 @@ class Wyze {
         await this.login()
       }
       result = await axios.post(`${this.baseUrl}/app/v2/home_page/get_object_list`, await this.getRequestBodyData())
-      if (result.data.msg === 'AccessTokenError') {
+      if (this.isTokenError(result.data)) {
         await this.getRefreshToken()
         return this.getObjectList()
       }
@@ -191,9 +206,9 @@ class Wyze {
         begin_time: options?.beginTime || startDate.getTime(),
       };
       result = await axios.post(`${this.baseUrl}/app/v2/device/get_event_list`, await this.getRequestBodyData(data))
-      if (result.data.msg === 'AccessTokenError') {
+      if (this.isTokenError(result.data)) {
         await this.getRefreshToken()
-        return this.getObjectList()
+        return this.getEventList(options)
       }
     }
     catch (e) {
@@ -227,9 +242,9 @@ class Wyze {
         sv: this.svV1,
       };
       result = await axios.post(`${this.baseV1Url}/api/v1/kinesis/replay_url/get`, await this.getRequestBodyData(data))
-      if (result.data.msg === 'AccessTokenError') {
+      if (this.isTokenError(result.data)) {
         await this.getRefreshToken()
-        return this.getObjectList()
+        return this.getEventVideoURL(options)
       }
     }
     catch (e) {
@@ -262,7 +277,7 @@ class Wyze {
       read_state: read ? 1 : 0,
     }
     let result = await axios.post(`${this.baseUrl}/app/v2/device_event/set_read_state_list`, await this.getRequestBodyData(data))
-    if (result.data.msg === 'AccessTokenError') {
+    if (this.isTokenError(result.data)) {
       await this.getRefreshToken()
       return this.markEventsRead(events, { read })
     }
@@ -291,7 +306,7 @@ class Wyze {
 
       result = await axios.post(`${this.baseUrl}/app/v2/auto/run_action`, await this.getRequestBodyData(data))
 
-      if (result.data.msg === 'AccessTokenError') {
+      if (this.isTokenError(result.data)) {
         await this.getRefreshToken()
         return this.runAction(instanceId, actionKey)
       }
@@ -416,7 +431,7 @@ class Wyze {
         })),
       }
       result = await axios.post(`${this.baseUrl}/app/v2/auto/run_action_list`, await this.getRequestBodyData(data))
-      if (result.data.msg === 'AccessTokenError') {
+      if (this.isTokenError(result.data)) {
         await this.getRefreshToken()
         return this.runActionListBatch(actions)
       }
@@ -747,9 +762,7 @@ class Wyze {
     }
 
     let result = await send()
-    const tokenError = result.data && (result.data.msg === 'AccessTokenError' ||
-      String(result.data.code) === '2001')
-    if (tokenError) {
+    if (this.isTokenError(result.data)) {
       await this.getRefreshToken()
       result = await send()
     }
@@ -837,8 +850,7 @@ class Wyze {
     }
 
     let result = await send()
-    const d = result.data || {}
-    if (d.msg === 'AccessTokenError' || String(d.code) === '2001' || String(d.ErrNo) === '2001') {
+    if (this.isTokenError(result.data)) {
       await this.getRefreshToken()
       result = await send()
     }
@@ -916,7 +928,7 @@ class Wyze {
       return await axios.get(`${SIRIUS.baseUrl}/plugin/sirius/get_iot_prop`, { headers, params: payload })
     }
     let result = await send()
-    if (result.data && (result.data.msg === 'AccessTokenError' || String(result.data.code) === '2001')) {
+    if (this.isTokenError(result.data)) {
       await this.getRefreshToken()
       result = await send()
     }
@@ -941,7 +953,7 @@ class Wyze {
       return await axios.post(`${SIRIUS.baseUrl}/plugin/sirius/set_iot_prop_by_topic`, body, { headers })
     }
     let result = await send()
-    if (result.data && (result.data.msg === 'AccessTokenError' || String(result.data.code) === '2001')) {
+    if (this.isTokenError(result.data)) {
       await this.getRefreshToken()
       result = await send()
     }
@@ -1063,7 +1075,7 @@ class Wyze {
       return await axios.get(`${baseUrl}${path}`, { headers, params: p })
     }
     let result = await send()
-    if (result.data && (result.data.msg === 'AccessTokenError' || String(result.data.code) === '2001')) {
+    if (this.isTokenError(result.data)) {
       await this.getRefreshToken()
       result = await send()
     }
