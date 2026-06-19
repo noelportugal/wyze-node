@@ -72,3 +72,28 @@ test('isTokenError matches all of Wyze\'s expired-token shapes', () => {
   assert.equal(wyze.isTokenError(null), false)
   assert.equal(wyze.isTokenError(undefined), false)
 })
+
+test('_filterIceServers drops TURN by default, keeps it on relay:auto', () => {
+  const servers = [
+    { urls: 'stun:stun.example:19302' },
+    { urls: 'turn:relay.example:443', username: 'u', credential: 'c' },
+    { urls: 'turns:relay.example:5349', username: 'u', credential: 'c' },
+  ]
+  // Default ('never') keeps only non-relay candidates — this is what lets a
+  // one-shot capture exit cleanly (no werift TURN keepalive timer).
+  assert.deepEqual(wyze._filterIceServers(servers, 'never'), [
+    { urls: 'stun:stun.example:19302' },
+  ])
+  // 'auto' preserves the full list for relay-only networks.
+  assert.deepEqual(wyze._filterIceServers(servers, 'auto'), servers)
+})
+
+test('_filterIceServers handles array-form urls', () => {
+  const servers = [
+    { urls: ['stun:a:19302', 'turn:b:443'] }, // mixed entry counts as TURN
+    { urls: ['stun:c:19302'] },
+  ]
+  assert.deepEqual(wyze._filterIceServers(servers, 'never'), [
+    { urls: ['stun:c:19302'] },
+  ])
+})

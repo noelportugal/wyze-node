@@ -135,8 +135,8 @@ await wyze.turnOffGroup(office)
 
 - wyze.getCameraSignalingInfo(device)  // { signalingUrl, iceServers, authToken }
 - wyze.getCameraStreamInfo(device[, { substream }])  // raw get-streams response
-- wyze.cameraCaptureSnapshot(device[, { timeoutMs }])  // live JPEG Buffer
-- wyze.saveCameraSnapshot(device, filePath)  // capture + write to file
+- wyze.cameraCaptureSnapshot(device[, { timeoutMs, relay }])  // live JPEG Buffer
+- wyze.saveCameraSnapshot(device, filePath[, { timeoutMs, relay }])  // capture + write to file
 
 `getCameraSignalingInfo` returns the AWS Kinesis Video signaling URL + ICE/TURN
 servers. `cameraCaptureSnapshot` goes the whole way — it negotiates a live
@@ -148,8 +148,21 @@ await wyze.saveCameraSnapshot(cam, 'driveway.jpg')
 ```
 
 > Live capture needs optional deps: `npm install werift ws ffmpeg-static`.
-> The camera must be online. For a one-shot CLI, call `process.exit(0)` after
-> saving (the WebRTC stack keeps the event loop alive).
+> The camera must be online.
+
+**`relay` (TURN policy)** — defaults to `'never'`: the capture uses direct/STUN
+candidates only, which is faster and lets the process **exit on its own** when
+done. (werift keeps a TURN keepalive timer that `pc.close()` doesn't clear, so
+any relay allocation otherwise pins the event loop.) If your camera isn't
+reachable on your local network and needs a relay, pass `{ relay: 'auto' }` to
+re-include TURN — but then call `process.exit(0)` after saving, since the loop
+won't drain on its own:
+
+```
+// remote / relay-only network
+await wyze.saveCameraSnapshot(cam, 'frame.jpg', { relay: 'auto' })
+process.exit(0)
+```
 
 ### Camera events
 

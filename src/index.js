@@ -1250,18 +1250,49 @@ class Wyze {
     return { signalingUrl, iceServers }
   }
 
+  // Drop TURN (relay) ICE servers from a normalized list. werift's TURN client
+  // keeps a keepalive/refresh timer alive that `pc.close()` does NOT clear, so
+  // any TURN allocation pins the Node event loop and stops a one-shot process
+  // from exiting on its own. For the common case — capturing your own camera on
+  // your own network — host/STUN candidates connect directly, so dropping TURN
+  // is both faster and lets the process drain cleanly.
+  _filterIceServers(iceServers, relay) {
+    if (relay === 'auto') return iceServers
+    const isTurn = (s) => /\bturns?:/i.test([].concat(s.urls || []).join(','))
+    return iceServers.filter((s) => !isTurn(s))
+  }
+
   /**
   * cameraCaptureSnapshot — capture a live JPEG frame from a camera over WebRTC.
   * Returns the image as a Buffer. Requires the optional deps werift / ws /
   * ffmpeg-static (npm install werift ws ffmpeg-static).
+  *
+  * @param {object} device
+  * @param {object} [opts]
+  * @param {number} [opts.timeoutMs=20000]
+  * @param {object} [opts.logger]
+  * @param {'never'|'auto'} [opts.relay='never'] TURN relay policy. 'never'
+  *   (default) skips TURN servers — direct/STUN only — which is faster and lets
+  *   the process exit cleanly (werift leaks a TURN keepalive timer otherwise).
+  *   Use 'auto' if the camera isn't reachable on your local network and needs a
+  *   relay; note the process may then not exit on its own (call process.exit()).
   * @returns {Promise<Buffer>} JPEG bytes
   */
-  async cameraCaptureSnapshot(device, { timeoutMs = 20000, logger = null } = {}) {
+  async cameraCaptureSnapshot(device, { timeoutMs = 20000, logger = null, relay = 'never' } = {}) {
     const bundle = await this.getCameraSignalingInfo(device)
-    const { signalingUrl, iceServers } = this._normalizeStreamBundle(bundle)
+    const norm = this._normalizeStreamBundle(bundle)
+    const signalingUrl = norm.signalingUrl
     if (!signalingUrl) throw new Error('No signaling URL returned for this camera (is it online?)')
+    const iceServers = this._filterIceServers(norm.iceServers, relay)
     const { captureStreamFrame } = require('./cameraStream')
-    return await captureStreamFrame({ signalingUrl, iceServers, timeoutMs, logger })
+    try {
+      return await captureStreamFrame({ signalingUrl, iceServers, timeoutMs, logger })
+    } catch (err) {
+      if (relay !== 'auto' && /timed out/i.test(err && err.message || '')) {
+        err.message += " — if this camera isn't on your local network, retry with { relay: 'auto' }"
+      }
+      throw err
+    }
   }
 
   /**

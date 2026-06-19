@@ -52,6 +52,33 @@ function resolveFfmpeg() {
   return _ffmpegPath
 }
 
+// A cancelable timeout. Returns a promise that rejects after `ms`, plus a
+// cancel() that clears the underlying timer so it never outlives the capture.
+// The timer is unref'd so it alone can't keep the process alive.
+function makeDeadline(ms) {
+  let timer = null
+  const promise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`capture timed out after ${ms}ms`)), ms)
+    if (typeof timer.unref === 'function') timer.unref()
+  })
+  // Swallow the rejection if nobody is racing it at cancel time, so a resolved
+  // capture doesn't surface an unhandled rejection.
+  promise.catch(() => {})
+  return {
+    promise,
+    cancel() { if (timer) { clearTimeout(timer); timer = null } },
+  }
+}
+
+// A bounded, non-blocking sleep. The timer is unref'd so this delay alone can
+// never keep the process alive — it only caps how long we wait for teardown.
+function delay(ms) {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms)
+    if (typeof t.unref === 'function') t.unref()
+  })
+}
+
 function pickFreeUdpPort() {
   return new Promise((resolve, reject) => {
     const sock = dgram.createSocket('udp4')
@@ -143,9 +170,26 @@ async function captureStreamFrame({ signalingUrl, iceServers, timeoutMs = 20_000
   const sdpPath = writeSdpFile(rtpPort)
 
   let ffmpeg = null, pc = null, ws = null, fwdSock = null
-  const cleanup = () => {
+  // A single cancelable deadline shared by every race below. The setTimeout
+  // handle MUST be cleared on the way out — otherwise a *successful* capture
+  // leaves this timer pending for the rest of timeoutMs, holding the event
+  // loop open and preventing a CLI/one-shot caller from exiting. `.unref()`
+  // belt-and-suspenders so a stray reference never pins the process either.
+  const deadline = makeDeadline(timeoutMs)
+  // `pc.close()` is async: werift only tears down its ICE consent / DTLS
+  // keepalive timers once that promise resolves. Firing it and forgetting
+  // (a sync finally) returns the frame while those timers are still pending,
+  // which pins the event loop and stops a one-shot caller from exiting. So we
+  // AWAIT it — bounded by a short unref'd cap so a wedged close can't hang us.
+  const cleanup = async () => {
+    deadline.cancel()
     try { ws?.close() } catch (_) {}
-    try { pc?.close() } catch (_) {}
+    try {
+      const closed = pc?.close()
+      if (closed && typeof closed.then === 'function') {
+        await Promise.race([closed, delay(2000)])
+      }
+    } catch (_) {}
     try { fwdSock?.close() } catch (_) {}
     try { ffmpeg?.kill('SIGKILL') } catch (_) {}
     try { fs.unlinkSync(sdpPath) } catch (_) {}
@@ -194,7 +238,7 @@ async function captureStreamFrame({ signalingUrl, iceServers, timeoutMs = 20_000
       ws.once('close', (code) => { if (code !== 1000) reject(new Error(`signaling WS closed (${code})`)) })
     })
 
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error(`capture timed out after ${timeoutMs}ms`)), timeoutMs))
+    const timeout = deadline.promise
 
     await Promise.race([
       new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject) }),
@@ -213,8 +257,8 @@ async function captureStreamFrame({ signalingUrl, iceServers, timeoutMs = 20_000
     log('debug', `captured ${buffer.length} bytes`)
     return buffer
   } finally {
-    cleanup()
+    await cleanup()
   }
 }
 
-module.exports = { captureStreamFrame }
+module.exports = { captureStreamFrame, makeDeadline }
