@@ -9,7 +9,15 @@ const { makeDeadline } = require('../src/cameraStream.js')
 
 test('makeDeadline rejects after the timeout elapses', async () => {
   const d = makeDeadline(10)
-  await assert.rejects(() => d.promise, /timed out after 10ms/)
+  // The deadline timer is unref'd (so it can't keep a real process alive). On
+  // Node 18 the test runner exits the loop when only unref'd timers remain, so
+  // hold it open with a ref'd timer until the deadline has had time to fire.
+  const keepAlive = setTimeout(() => {}, 1000)
+  try {
+    await assert.rejects(() => d.promise, /timed out after 10ms/)
+  } finally {
+    clearTimeout(keepAlive)
+  }
 })
 
 test('cancel() clears the timer and stops it from firing', async () => {
